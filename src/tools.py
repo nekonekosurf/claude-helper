@@ -308,17 +308,25 @@ def tool_grep(pattern: str, path: str | None = None, file_pattern: str | None = 
 
 
 def tool_search_docs(query: str, top_k: int = 5, doc_filter: str | None = None) -> str:
-    """JERG文書を検索する"""
+    """JERG文書をハイブリッド検索する（BM25+同義語+ベクトル+要約+LLM拡張）"""
     try:
-        from src.searcher import search
-        results = search(query, top_k=top_k, doc_filter=doc_filter)
+        from src.hybrid_search import hybrid_search
+        from src.llm_client import create_client
+
+        client, model = create_client()
+        results, methods = hybrid_search(
+            query, top_k=top_k, doc_filter=doc_filter,
+            client=client, model=model,
+        )
         if not results:
             return "検索結果がありません"
 
-        parts = []
+        header = f"🔍 検索手法: {', '.join(methods)}\n"
+        parts = [header]
         for r in results:
+            methods_str = "+".join(r.get("methods", []))
             parts.append(
-                f"📄 {r['doc_id']} (score: {r['score']})\n"
+                f"📄 {r['doc_id']} (score: {r['score']:.4f}, via: {methods_str})\n"
                 f"   {r['text'][:400]}"
             )
         return "\n\n".join(parts)
