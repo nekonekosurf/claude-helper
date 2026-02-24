@@ -3,3 +3,7 @@ memory/
 *.jsonl
 .env
 data/
+__pycache__/
+*.pyc
+agent_memory/
+sessions/

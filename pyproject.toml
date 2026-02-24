@@ -5,6 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "cryptography>=46.0.5",
+    "fugashi>=1.5.2",
     "openai>=2.22.0",
+    "pypdf>=6.7.2",
     "python-dotenv>=1.2.1",
+    "pyyaml>=6.0.3",
+    "rank-bm25>=0.2.2",
+    "unidic-lite>=1.0.8",
 ]

@@ -1,0 +1,11 @@
+rules:
+- category: thermal
+  documents:
+  - id: JERG-2-200
+    title: 熱設計ガイドライン
+  - id: JERG-2-211
+    title: 熱解析手順書
+  pattern: 熱設計|熱解析|温度制御
+  procedure:
+  - 設計要件を確認する
+  - JERG-2-200 と JERG-2-211 を参照し、回答を作成する

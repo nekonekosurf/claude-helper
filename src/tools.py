@@ -1,7 +1,9 @@
-"""ツール定義と実行 - read_file, write_file, edit_file, bash"""
+"""ツール定義と実行 - read_file, write_file, edit_file, bash, glob, grep, search_docs"""
 
 import json
 import subprocess
+import fnmatch
+import re
 from pathlib import Path
 from src.config import MAX_OUTPUT_CHARS, WORKING_DIR
 
@@ -86,6 +88,77 @@ TOOL_DEFINITIONS = [
                     },
                 },
                 "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "glob",
+            "description": "ファイルパターンで検索する。例: '**/*.py', 'src/**/*.ts'",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "globパターン（例: '**/*.py'）",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "検索開始ディレクトリ（省略時: 作業ディレクトリ）",
+                    },
+                },
+                "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "grep",
+            "description": "正規表現でファイル内容を検索する。マッチした行を返す。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "検索する正規表現パターン",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "検索対象のファイルまたはディレクトリ（省略時: 作業ディレクトリ）",
+                    },
+                    "file_pattern": {
+                        "type": "string",
+                        "description": "対象ファイルのglobパターン（例: '*.py'）",
+                    },
+                },
+                "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_docs",
+            "description": "JERG技術文書をキーワード検索する。関連するチャンクを返す。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "検索クエリ（日本語）",
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": "返す件数（デフォルト: 5）",
+                    },
+                    "doc_filter": {
+                        "type": "string",
+                        "description": "文書番号フィルタ（部分一致、例: 'JERG-2-200'）",
+                    },
+                },
+                "required": ["query"],
             },
         },
     },
@@ -180,6 +253,81 @@ def tool_bash(command: str) -> str:
         return f"Error: {e}"
 
 
+def tool_glob(pattern: str, path: str | None = None) -> str:
+    """ファイルパターンで検索する"""
+    base = _resolve_path(path) if path else Path(WORKING_DIR)
+    if not base.exists():
+        return f"Error: ディレクトリが見つかりません: {base}"
+    try:
+        matches = sorted(base.glob(pattern))
+        if not matches:
+            return f"パターン '{pattern}' に一致するファイルはありません"
+        lines = [str(m) for m in matches[:100]]
+        result = "\n".join(lines)
+        if len(matches) > 100:
+            result += f"\n... (他 {len(matches) - 100} 件)"
+        return result
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def tool_grep(pattern: str, path: str | None = None, file_pattern: str | None = None) -> str:
+    """正規表現でファイル内容を検索する"""
+    base = _resolve_path(path) if path else Path(WORKING_DIR)
+    try:
+        regex = re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        return f"Error: 無効な正規表現: {e}"
+
+    results = []
+    try:
+        if base.is_file():
+            files = [base]
+        else:
+            glob_pat = file_pattern or "**/*"
+            files = [f for f in base.glob(glob_pat) if f.is_file()]
+
+        for filepath in files[:200]:
+            try:
+                text = filepath.read_text(encoding="utf-8", errors="replace")
+                for i, line in enumerate(text.splitlines(), 1):
+                    if regex.search(line):
+                        results.append(f"{filepath}:{i}: {line.strip()}")
+                        if len(results) >= 50:
+                            break
+            except Exception:
+                continue
+            if len(results) >= 50:
+                break
+
+        if not results:
+            return f"パターン '{pattern}' に一致する箇所はありません"
+        return "\n".join(results)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def tool_search_docs(query: str, top_k: int = 5, doc_filter: str | None = None) -> str:
+    """JERG文書を検索する"""
+    try:
+        from src.searcher import search
+        results = search(query, top_k=top_k, doc_filter=doc_filter)
+        if not results:
+            return "検索結果がありません"
+
+        parts = []
+        for r in results:
+            parts.append(
+                f"📄 {r['doc_id']} (score: {r['score']})\n"
+                f"   {r['text'][:400]}"
+            )
+        return "\n\n".join(parts)
+    except FileNotFoundError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error: 検索エラー: {e}"
+
+
 # --- ツール実行ディスパッチ ---
 
 _TOOL_MAP = {
@@ -187,6 +335,9 @@ _TOOL_MAP = {
     "write_file": lambda args: tool_write_file(**args),
     "edit_file": lambda args: tool_edit_file(**args),
     "bash": lambda args: tool_bash(**args),
+    "glob": lambda args: tool_glob(**args),
+    "grep": lambda args: tool_grep(**args),
+    "search_docs": lambda args: tool_search_docs(**args),
 }
 
 
