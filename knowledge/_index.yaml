@@ -1,3 +1,5 @@
 categories:
 - display_name: 熱設計
   name: thermal
+- display_name: 構造設計
+  name: structure

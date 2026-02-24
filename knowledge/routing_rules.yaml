@@ -9,3 +9,8 @@ rules:
   procedure:
   - 設計要件を確認する
   - JERG-2-200 と JERG-2-211 を参照し、回答を作成する
+- category: structure
+  documents:
+  - id: JERG-2-320
+    title: 構造設計に関する文書
+  pattern: 構造設計
