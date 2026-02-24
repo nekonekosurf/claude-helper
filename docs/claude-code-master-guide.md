@@ -18,8 +18,11 @@
 - [10. IDE 連携](#10-ide-連携)
 - [11. トラブルシューティング](#11-トラブルシューティング)
 - [12. 高度な使い方](#12-高度な使い方)
-- [13. 実際のユースケース・事例](#13-実際のユースケース事例)
-- [14. 情報源・参考リンク](#14-情報源参考リンク)
+- [13. プラグイン](#13-プラグイン)
+- [14. サンドボックス](#14-サンドボックス)
+- [15. ステータスライン](#15-ステータスライン)
+- [16. 実際のユースケース・事例](#16-実際のユースケース事例)
+- [17. 情報源・参考リンク](#17-情報源参考リンク)
 
 ---
 
@@ -1132,7 +1135,62 @@ echo $ANTHROPIC_API_KEY
 
 ### 12.1 Agent Teams（並行エージェント）
 
-サブエージェントが単一セッション内で動作するのに対し、Agent Teams は複数の独立したセッション間でエージェントを協調させる。共有タスク、メッセージング、チームリードによる自動調整が可能 [^1]。
+Agent Teams は複数の Claude Code インスタンスをチームとして協調させる実験的機能である。1つのセッションがチームリードとなり、タスク割り当て、結果の統合を行う。各チームメイトは独立したコンテキストウィンドウで作業し、直接メッセージで通信できる [^17]。
+
+#### 有効化
+
+```json
+// settings.json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+#### Agent Teams vs サブエージェント
+
+| | サブエージェント | Agent Teams |
+|--|----------------|-------------|
+| コンテキスト | 独自。結果は呼び出し元に返る | 独自。完全に独立 |
+| コミュニケーション | メインエージェントにのみ報告 | チームメイト間で直接メッセージ |
+| 協調 | メインエージェントが全管理 | 共有タスクリストで自己協調 |
+| 最適な用途 | 結果だけが重要な集中タスク | 議論や協力が必要な複雑作業 |
+| トークンコスト | 低（結果を要約して返す） | 高（各チームメイトが独立インスタンス） |
+
+#### チームの起動
+
+```
+Create an agent team to review PR #142. Spawn three reviewers:
+- One focused on security implications
+- One checking performance impact
+- One validating test coverage
+Have them each review and report findings.
+```
+
+#### 表示モード
+
+| モード | 説明 | 設定 |
+|-------|------|------|
+| `in-process` | 全チームメイトがメインターミナル内で実行。`Shift+Down` で切り替え | デフォルト |
+| `tmux` / `iterm2` | 各チームメイトが独自のペインを持つ。全員の出力を同時に確認可能 | `"teammateMode": "tmux"` |
+
+#### 品質ゲートの強制
+
+`TeammateIdle` フックでチームメイトの停止前にチェック、`TaskCompleted` フックでタスク完了前にテスト実行等を強制できる。
+
+#### 推奨チームサイズ
+
+- 3〜5人のチームメイトで開始
+- チームメイト1人あたり5〜6タスクが目安
+- 並行作業の価値が明確な場合にのみスケールアップ
+
+#### 最適なユースケース
+
+- **リサーチ・レビュー**: 複数の観点で同時調査
+- **新機能・モジュール**: ファイル衝突なく分担
+- **仮説検証デバッグ**: 競合する仮説を並行テスト
+- **クロスレイヤー変更**: フロントエンド/バックエンド/テストを分担
 
 ### 12.2 Plan Mode
 
@@ -1228,15 +1286,195 @@ Claude の全アクションはチェックポイントを作成する。`Esc + 
 
 ---
 
-## 13. 実際のユースケース・事例
+## 13. プラグイン
 
-### 13.1 OSS 開発での活用
+### 13.1 プラグインとは
+
+プラグインはスキル、フック、サブエージェント、MCP サーバーを単一のインストール可能な単位にバンドルしたものである。2026年2月時点で9,000以上のプラグインが利用可能 [^18]。
+
+### 13.2 プラグインのインストール
+
+```bash
+# マーケットプレイスの追加
+/plugin marketplace add user-or-org/repo-name
+
+# プラグインのブラウズとインストール
+/plugin
+
+# コマンドラインからインストール
+claude plugin install <plugin-name>
+
+# ローカル開発テスト
+claude --plugin-dir ./your-plugin
+```
+
+### 13.3 プラグインの構造
+
+```
+plugin-name/
+├── .claude-plugin/
+│   └── plugin.json      # マニフェスト（必須）
+├── .mcp.json             # MCP サーバー設定（任意）
+├── commands/             # スラッシュコマンド（任意）
+├── agents/               # サブエージェント（任意）
+├── skills/               # スキル（任意）
+├── hooks/
+│   └── hooks.json        # フック設定（任意）
+└── README.md
+```
+
+`plugin.json` の例：
+
+```json
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "description": "My custom plugin",
+  "author": "username",
+  "mcpServers": {
+    "plugin-api": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/api-server",
+      "args": ["--port", "8080"]
+    }
+  }
+}
+```
+
+### 13.4 推奨プラグインカテゴリ
+
+- **コードインテリジェンス**: 型付き言語向けのシンボルナビゲーション、自動エラー検出
+- **マルチエージェントワークフロー**: Claude Taskmaster、Claude-Flow、Squad
+- **GUI & IDE クライアント**: Claudia、Web UI、Neovim Extension
+- **プラグインテンプレート**: Awesome Claude Code、Subagents Collection
+
+### 13.5 マーケットプレイスの作成
+
+GitHub リポジトリに `marketplace.json` を追加するだけで独自のマーケットプレイスを作成できる：
+
+```json
+// marketplace.json
+{
+  "plugins": [
+    {
+      "name": "my-plugin",
+      "path": "./plugins/my-plugin"
+    }
+  ]
+}
+```
+
+---
+
+## 14. サンドボックス
+
+### 14.1 サンドボックスとは
+
+サンドボックスは OS レベルのファイルシステム・ネットワーク隔離を提供する機能である。権限プロンプトの代わりに事前定義された境界内で自由に作業できる [^19]。
+
+### 14.2 OS 別の実装
+
+| OS | 実装技術 |
+|-----|---------|
+| macOS | Seatbelt（App Sandbox） - カーネルレベルの制限 |
+| Linux / WSL2 | bubblewrap (bwrap) - Flatpak で使用される軽量サンドボックス |
+| WSL1 | 非サポート（bubblewrap に必要なカーネル機能がない） |
+
+### 14.3 有効化と設定
+
+```bash
+# Claude Code 内でサンドボックスを有効化
+/sandbox
+```
+
+### 14.4 隔離境界
+
+#### ファイルシステム
+
+- **書き込み**: カレントワーキングディレクトリとそのサブディレクトリのみ
+- **読み取り**: システム全体（明示的に拒否されたディレクトリを除く）
+
+#### ネットワーク
+
+- **デフォルト**: 全ネットワークアクセスが拒否
+- **許可リスト**: 明示的に許可されたドメインのみアクセス可能
+- 空の `allowedDomains` リスト = ネットワークアクセスなし
+
+### 14.5 サンドボックスモード
+
+- **Auto-allow モード**: サンドボックス内で Bash コマンドを自動実行。サンドボックスできないコマンド（許可されていないホストへのネットワークアクセス等）は通常の権限フローにフォールバック
+- `--dangerously-skip-permissions` より安全に自律作業を実現
+
+---
+
+## 15. ステータスライン
+
+### 15.1 ステータスラインとは
+
+ステータスラインは Claude Code の画面下部に表示されるカスタマイズ可能なバーである。任意のシェルスクリプトを設定でき、JSON セッションデータを stdin で受け取って表示する [^20]。
+
+### 15.2 設定方法
+
+```bash
+# Claude Code 内で対話的に設定
+/statusline
+```
+
+`/statusline` を実行すると Claude がスクリプトを生成してくれる。
+
+### 15.3 表示可能な情報
+
+- コンテキストウィンドウの使用率
+- トークン消費量・コスト
+- Git ステータス（ブランチ、変更ファイル数）
+- 現在のモデル
+- セッション時間
+- カスタムメトリクス
+
+### 15.4 手動設定例
+
+`~/.claude/settings.json` にスクリプトパスを追加：
+
+```json
+{
+  "statusline": {
+    "command": "~/.claude/scripts/statusline.sh"
+  }
+}
+```
+
+ステータスラインスクリプトの例：
+
+```bash
+#!/bin/bash
+# stdin から JSON セッションデータを読み取る
+INPUT=$(cat)
+CONTEXT_PCT=$(echo "$INPUT" | jq -r '.context_window_percent // "?"')
+MODEL=$(echo "$INPUT" | jq -r '.model // "unknown"')
+echo "Context: ${CONTEXT_PCT}% | Model: ${MODEL}"
+```
+
+### 15.5 コミュニティツール
+
+- **ccstatusline**: React + Ink ベースの高度にカスタマイズ可能なステータスライン
+- **starship-claude**: Starship スタイルのプリセット
+
+### 15.6 パフォーマンスの注意
+
+- ステータスラインスクリプトはアクティブセッション中に頻繁に実行される
+- 出力は短く保つ（バー幅は限られている）
+- 遅い操作（`git status` 等）はキャッシュする
+
+---
+
+## 16. 実際のユースケース・事例
+
+### 16.1 OSS 開発での活用
 
 - **Anthropic 社内**: 約12名のエンジニアチームで1日60〜100の内部リリース、エンジニア1人あたり1日約5つの PR [^16]
 - **claude-code-infrastructure-showcase**: 6ヶ月以上の実環境テストを経たインフラ。40%以上の効率改善を報告
 - **Hugging Face**: Claude Code Skills を使って1日1,000以上のML実験を実行 [^6]
 
-### 13.2 大規模プロジェクトでの実践
+### 16.2 大規模プロジェクトでの実践
 
 #### 大規模リファクタリング
 
@@ -1265,7 +1503,7 @@ Claude の全アクションはチェックポイントを作成する。`Esc + 
 4. 実装 → テスト → レビュー → コミット
 ```
 
-### 13.3 一人開発での活用
+### 16.3 一人開発での活用
 
 #### 効果的なワークフロー
 
@@ -1285,7 +1523,7 @@ Claude の全アクションはチェックポイントを作成する。`Esc + 
 > Analyze the data in data/sales.csv and create visualizations
 ```
 
-### 13.4 チーム開発のベストプラクティス
+### 16.4 チーム開発のベストプラクティス
 
 1. **CLAUDE.md をバージョン管理**：チーム全員が同じ規約を共有
 2. **プロジェクトスキルを標準化**：`.claude/skills/` にチーム共通のワークフロー
@@ -1295,7 +1533,7 @@ Claude の全アクションはチェックポイントを作成する。`Esc + 
 
 ---
 
-## 14. 情報源・参考リンク
+## 17. 情報源・参考リンク
 
 ### Anthropic 公式ドキュメント
 
@@ -1312,6 +1550,17 @@ Claude の全アクションはチェックポイントを作成する。`Esc + 
 - [Troubleshooting](https://code.claude.com/docs/en/troubleshooting)
 - [Claude Code のベストプラクティス（日本語）](https://code.claude.com/docs/ja/best-practices)
 
+### Anthropic 公式ドキュメント（追加）
+
+- [Orchestrate Teams of Claude Code Sessions](https://code.claude.com/docs/en/agent-teams)
+- [Create and Distribute a Plugin Marketplace](https://code.claude.com/docs/en/plugin-marketplaces)
+- [Sandboxing](https://code.claude.com/docs/en/sandboxing)
+- [Customize Your Status Line](https://code.claude.com/docs/en/statusline)
+- [Automate Workflows with Hooks (Guide)](https://code.claude.com/docs/en/hooks-guide)
+- [Interactive Mode](https://code.claude.com/docs/en/interactive-mode)
+- [Checkpointing](https://code.claude.com/docs/en/checkpointing)
+- [Features Overview (Extend Claude Code)](https://code.claude.com/docs/en/features-overview)
+
 ### コミュニティリソース
 
 - [Writing a Good CLAUDE.md - HumanLayer Blog](https://www.humanlayer.dev/blog/writing-a-good-claude-md)
@@ -1325,6 +1574,19 @@ Claude の全アクションはチェックポイントを作成する。`Esc + 
 - [awesome-claude-code - GitHub](https://github.com/hesreallyhim/awesome-claude-code)
 - [shanraisshan/claude-code-best-practice - GitHub](https://github.com/shanraisshan/claude-code-best-practice)
 - [Best MCP Servers for Claude Code - MCPcat](https://mcpcat.io/guides/best-mcp-servers-for-claude-code/)
+
+### コミュニティリソース（追加）
+
+- [Claude Code Agent Teams: The Complete Guide 2026 - claudefast](https://claudefa.st/blog/guide/agents/agent-teams)
+- [From Tasks to Swarms: Agent Teams in Claude Code - alexop.dev](https://alexop.dev/posts/from-tasks-to-swarms-agent-teams-in-claude-code/)
+- [Claude Code Plugins Guide - Composio](https://composio.dev/blog/claude-code-plugin)
+- [How to Build Claude Code Plugins - DataCamp](https://www.datacamp.com/tutorial/how-to-build-claude-code-plugins)
+- [Claude Code Sandboxing: OS-level Isolation - Anthropic Engineering](https://www.anthropic.com/engineering/claude-code-sandboxing)
+- [Docker Sandboxes: Run Claude Code Safely - Docker](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/)
+- [The Ultimate Claude Code Guide - DEV Community](https://dev.to/holasoymalva/the-ultimate-claude-code-guide-every-hidden-trick-hack-and-power-feature-you-need-to-know-2l45)
+- [Parallel AI Coding with Git Worktrees - Agent Interviews](https://docs.agentinterviews.com/blog/parallel-ai-coding-with-gitworktrees/)
+- [Claude Code Troubleshooting Guide - ClaudeLog](https://claudelog.com/troubleshooting/)
+- [Creating The Perfect Claude Code Status Line - aihero.dev](https://www.aihero.dev/creating-the-perfect-claude-code-status-line)
 
 ### 日本語リソース
 
@@ -1363,6 +1625,10 @@ Claude の全アクションはチェックポイントを作成する。`Esc + 
 [^14]: [Use Claude Code in VS Code - Anthropic 公式](https://code.claude.com/docs/en/vs-code)
 [^15]: [Run Claude Code Programmatically - Anthropic 公式](https://code.claude.com/docs/en/headless)
 [^16]: [How Claude Code is built - Pragmatic Engineer](https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built)
+[^17]: [Orchestrate teams of Claude Code sessions - Anthropic 公式](https://code.claude.com/docs/en/agent-teams)
+[^18]: [Claude Code Plugins: Best Plugins, Installation & Build Guide 2026 - Morph](https://www.morphllm.com/claude-code-plugins)
+[^19]: [Sandboxing - Anthropic 公式](https://code.claude.com/docs/en/sandboxing)
+[^20]: [Customize your status line - Anthropic 公式](https://code.claude.com/docs/en/statusline)
 
 ---
 
