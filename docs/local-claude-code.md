@@ -1,96 +1,166 @@
-# ローカル版 Claude Code を作る方法
+# ローカル版 Claude Code を vLLM で構築する
 
 ## 概要
 
-Claude Code と同等のコーディングエージェントを、ローカルLLM（中国系モデル除外）で構築するための調査結果。
+Claude Code と同等のコーディングエージェントを、**vLLM + ローカルLLM**（中国系モデル除外）でゼロから構築するための設計書。
 
 ---
 
-## 1. 既存のオープンソース代替ツール
+## 1. vLLM 基盤
 
-### 比較表
+### vLLM とは
 
-| 機能 | Claude Code | Aider | Goose | OpenCode | Vibe CLI | Open Interpreter |
-|---|---|---|---|---|---|---|
-| CLI対話 | ○ | ○ | ○ | ○ | ○ | ○ |
-| ファイル読み書き編集 | ○ | ○ | ○ | ○ | ○ | ○ |
-| Bash実行 | ○ | × | ○ | ○ | ○ | ○ |
-| コード検索 | ○ | △ | MCP経由 | ○ | ○ | ○ |
-| ツール呼び出し | ○ | 暗黙的 | ○(MCP) | ○ | ○ | ○ |
-| サブエージェント | ○ | × | × | マルチセッション | ○ | × |
-| 記憶の永続化 | CLAUDE.md | × | × | × | × | × |
-| プランモード | ○ | × | Deep mode | × | × | × |
-| Git連携 | ○ | 最強 | ○ | ○ | ○ | △ |
-| ローカルLLM | × | ○ | ○ | ○ | ○ | ○ |
-| MCP対応 | ○ | × | ○(ネイティブ) | △ | × | × |
-| オープンソース | × | ○ | ○ | ○ | ○ | ○ |
+高性能な LLM 推論サーバー。OpenAI 互換 API を提供し、ツール呼び出し（Function Calling）に対応。
 
-### 各ツールの詳細
+### なぜ vLLM か
 
-#### Aider（コード編集精度が最高）
-- **GitHub:** github.com/paul-gauthier/aider（39K+ stars）
-- **特徴:**
-  - tree-sitter でAST解析 → PageRank でリポジトリマップを生成
-  - search/replaceブロック方式の編集（最も信頼性が高い）
-  - Git統合が最も充実（自動コミット、メッセージ生成）
-  - フォールバックマッチング: 完全一致 → 空白無視 → ファジーLevenshtein距離
-- **ローカルLLM:** `aider --model ollama_chat/<model-name>`
-- **弱点:** サブエージェントなし、プランモードなし、Bash実行なし
-
-#### Goose（MCP拡張性が最強）
-- **GitHub:** github.com/block/goose（30K+ stars、Apache 2.0）
-- **特徴:**
-  - MCP ネイティブ統合（BlockがAnthropicと共同設計）
-  - 「Deep mode」で自律的リサーチ
-  - Linux Foundation の Agentic AI Foundation に参加
-- **ローカルLLM:** Ollama, Ramalama, Docker Model Runner 対応
-- **弱点:** コード編集精度はAiderより劣る
-
-#### OpenCode（TUIが最も美しい）
-- **GitHub:** github.com/opencode-ai/opencode（100K+ stars）
-- **特徴:**
-  - Go製、Bubble Tea によるリッチなTUI
-  - LSP連携（LLMに言語サーバー情報を提供）
-  - マルチセッション対応（複数エージェント並列実行）
-- **ローカルLLM:** Ollama対応（64K以上のコンテキスト必要）
-- **弱点:** Ollamaでのツール呼び出しに問題報告あり
-
-#### Mistral Vibe CLI（Claude Codeに最も近いアーキテクチャ）
-- **GitHub:** github.com/mistralai/mistral-vibe（Apache 2.0）
-- **特徴:**
-  - サブエージェントでタスク委任（コンテキスト汚染防止）
-  - プロジェクト全体のコンテキストスキャン
-  - ツール実行の自動承認トグル
-  - `@` でファイル参照、`!` でシェルコマンド
-- **ローカルLLM:** Devstral Small 2 (24B) 向けに設計
-- **弱点:** 新しいプロジェクト、成熟度はまだ低い
-
-### 結論：どれを使うか
-
-| 目的 | 推奨ツール |
+| 特性 | 内容 |
 |---|---|
-| Claude Codeに最も近い体験 | **Mistral Vibe CLI**（サブエージェント、ツール権限、プロジェクトコンテキスト） |
-| 最高のコード編集精度 | **Aider**（Git統合、search/replace方式） |
-| 最大の拡張性 | **Goose**（MCP経由で何でも追加可能） |
-| 美しいTUI + マルチセッション | **OpenCode** |
+| 並列処理 | 100+ 同時リクエスト対応（サブエージェント並列に最適） |
+| PagedAttention | VRAMの断片化を50%以上削減 |
+| 構造化出力 | `guided_json` / `guided_grammar` で有効なJSON出力を強制 |
+| ツール呼び出し | `--enable-auto-tool-choice` でネイティブ対応 |
+| OpenAI互換 | 標準的な `openai` Python SDKがそのまま使える |
+
+### vLLM 起動コマンド
+
+```bash
+# 基本起動（ツール呼び出し有効）
+vllm serve meta-llama/Llama-3.3-70B-Instruct \
+  --enable-auto-tool-choice \
+  --tool-call-parser hermes \
+  --max-model-len 131072 \
+  --gpu-memory-utilization 0.90
+
+# Mistral モデルの場合
+vllm serve mistralai/Devstral-Small-2501 \
+  --enable-auto-tool-choice \
+  --tool-call-parser mistral \
+  --max-model-len 262144
+
+# Gemma モデルの場合
+vllm serve google/gemma-3-27b-it \
+  --enable-auto-tool-choice \
+  --tool-call-parser hermes \
+  --max-model-len 131072
+
+# 量子化モデル（VRAM節約）
+vllm serve TheBloke/Llama-3.3-70B-Instruct-AWQ \
+  --quantization awq \
+  --enable-auto-tool-choice \
+  --tool-call-parser hermes
+```
+
+### ツール呼び出しパーサー
+
+| パーサー | 対応モデル |
+|---|---|
+| `hermes` | Llama 3.x, Gemma 3, 汎用 |
+| `mistral` | Mistral / Devstral / Codestral |
+| `llama3_json` | Llama 3.1+ 専用 |
+| `jamba` | Jamba モデル |
+
+### vLLM での API 呼び出し
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="not-needed"  # ローカルなので不要
+)
+
+# ツール定義
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "ファイルの内容を読む",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "ファイルパス"},
+                    "offset": {"type": "integer", "description": "開始行"},
+                    "limit": {"type": "integer", "description": "行数"}
+                },
+                "required": ["path"]
+            }
+        }
+    }
+]
+
+# ツール呼び出し付きリクエスト
+response = client.chat.completions.create(
+    model="meta-llama/Llama-3.3-70B-Instruct",
+    messages=[{"role": "user", "content": "main.py を読んで"}],
+    tools=tools,
+    tool_choice="auto",
+    temperature=0  # ツール呼び出しは決定論的に
+)
+
+# ツール呼び出しの解析
+if response.choices[0].message.tool_calls:
+    tool_call = response.choices[0].message.tool_calls[0]
+    print(f"ツール: {tool_call.function.name}")
+    print(f"引数: {tool_call.function.arguments}")
+```
+
+### 構造化出力（JSON強制）
+
+```python
+from pydantic import BaseModel
+
+class ToolCall(BaseModel):
+    tool_name: str
+    arguments: dict
+
+# guided_json で出力を強制
+response = client.chat.completions.create(
+    model="meta-llama/Llama-3.3-70B-Instruct",
+    messages=[...],
+    extra_body={
+        "guided_json": ToolCall.model_json_schema()
+    }
+)
+```
+
+### 複数モデルの同時起動（用途別）
+
+```bash
+# メインモデル（生成・推論用）ポート8000
+vllm serve mistralai/Devstral-Small-2501 \
+  --port 8000 \
+  --enable-auto-tool-choice \
+  --tool-call-parser mistral
+
+# 軽量モデル（ルーティング・分類用）ポート8001
+vllm serve google/gemma-3-4b-it \
+  --port 8001 \
+  --max-model-len 8192
+
+# Embedding モデル ポート8002
+vllm serve intfloat/multilingual-e5-large \
+  --port 8002 \
+  --task embed
+```
 
 ---
 
 ## 2. 使えるモデル（中国系除外）
 
-> **注意:** DeepSeekは中国企業（杭州、High-Flyer傘下）のため除外。Qwen（Alibaba）も除外。
+> **除外:** DeepSeek（中国・杭州）、Qwen（Alibaba）、BGE（中国科学院）
 
 ### コーディング用モデル
 
-| モデル | 開発元 | サイズ | コンテキスト | コーディング力 | VRAM(Q4) | ツール呼出 |
+| モデル | 開発元 | サイズ | コンテキスト | コーディング力 | VRAM(Q4) | vLLM ツールパーサー |
 |---|---|---|---|---|---|---|
-| **Devstral Small 2** | Mistral(仏) | 24B | 256K | とても良い | ~16GB | ネイティブ |
-| **Llama 3.3 70B** | Meta(米) | 70B | 128K | 優秀 | ~42GB | ネイティブ |
-| **Codestral 22B** | Mistral(仏) | 22B | 256K | とても良い | ~14GB | Instruct版 |
-| **Gemma 3 27B** | Google(米) | 27B | 128K | 良い | ~18GB | ネイティブ |
-| **Gemma 3 12B** | Google(米) | 12B | 128K | 良い | ~8GB | ネイティブ |
-| Llama 3.1 Swallow 8B | 東工大 | 8B | 128K | 日本語特化 | ~6GB | ネイティブ |
-| StarCoder2 15B | BigCode | 15B | 16K | コード特化 | ~10GB | なし |
+| **Devstral Small 2** | Mistral(仏) | 24B | 256K | とても良い | ~16GB | `mistral` |
+| **Llama 3.3 70B** | Meta(米) | 70B | 128K | 優秀 | ~42GB | `hermes` or `llama3_json` |
+| **Codestral 22B** | Mistral(仏) | 22B | 256K | とても良い | ~14GB | `mistral` |
+| **Gemma 3 27B** | Google(米) | 27B | 128K | 良い | ~18GB | `hermes` |
+| **Gemma 3 12B** | Google(米) | 12B | 128K | 良い | ~8GB | `hermes` |
+| Llama 3.1 Swallow 8B | 東工大 | 8B | 128K | 日本語特化 | ~6GB | `hermes` |
 
 ### Embedding モデル（中国系除外）
 
@@ -99,17 +169,16 @@ Claude Code と同等のコーディングエージェントを、ローカルLL
 | **multilingual-e5-large** | Microsoft(米) | 560M | 1024 | 優秀 |
 | multilingual-e5-base | Microsoft(米) | 278M | 768 | とても良い |
 | nomic-embed-text-v1.5 | Nomic(米) | 137M | 768 | 良い |
-| e5-mistral-7b-instruct | Microsoft(米) | 7B | 4096 | 優秀(重い) |
 
 ### ハードウェア別の推奨構成
 
-| ハードウェア | 推奨モデル | 体験品質 |
+| ハードウェア | 推奨モデル | vLLM 設定 |
 |---|---|---|
-| **8GB VRAM** (RTX 4060) | Gemma 3 12B Q4 | 基本的な編集は可能 |
-| **16GB VRAM** (RTX 4070 Ti) | Devstral Small 2 24B Q4 | 良い（実用レベル） |
-| **24GB VRAM** (RTX 4090) | Devstral Small 2 24B Q5/Q6 | とても良い |
-| **32GB VRAM** (RTX 5090) | Llama 3.3 70B Q4 | 優秀 |
-| **Mac 32GB+** | Devstral Small 2 24B | 良い（やや遅い） |
+| **16GB VRAM** (RTX 4070 Ti) | Devstral Small 2 24B (AWQ量子化) | `--quantization awq` |
+| **24GB VRAM** (RTX 4090) | Devstral Small 2 24B (FP16) | デフォルト |
+| **32GB VRAM** (RTX 5090) | Llama 3.3 70B (AWQ量子化) | `--quantization awq` |
+| **48GB+ VRAM** (2x 3090) | Llama 3.3 70B (FP16) | `--tensor-parallel-size 2` |
+| **80GB+ VRAM** (A100) | Llama 3.3 70B (FP16) | フルスペック |
 
 ---
 
@@ -123,7 +192,7 @@ Claude Code と同等のコーディングエージェントを、ローカルLL
 │  (Python: Rich+Textual / Go: Bubble Tea) │
 ├─────────────────────────────────────────┤
 │            エージェントループ              │
-│  入力 → プロンプト組立 → LLM呼出 →       │
+│  入力 → プロンプト組立 → vLLM呼出 →     │
 │  ツール解析 → ツール実行 → 結果注入 →     │
 │  ループ or 最終回答                       │
 ├─────────────────────────────────────────┤
@@ -135,245 +204,383 @@ Claude Code と同等のコーディングエージェントを、ローカルLL
 │  リポマップ(tree-sitter) | ファイルキャッシュ│
 │  会話履歴 | 記憶ファイル                   │
 ├─────────────────────────────────────────┤
-│           LLMプロバイダ層                  │
-│  Ollama | llama.cpp | vLLM               │
+│           vLLM サーバー群                  │
+│  メイン(8000) | ルーター(8001) | Embed(8002)│
 ├─────────────────────────────────────────┤
 │            永続化レイヤー                  │
 │  セッションDB | 記憶ファイル | 設定         │
 └─────────────────────────────────────────┘
 ```
 
-### エージェントループ（ReActパターン）
-
-最小実装は **約400行のPython** で可能:
+### エージェントループ（vLLM版）
 
 ```python
-def agent_loop(user_message, tools, model):
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="dummy")
+
+SYSTEM_PROMPT = """あなたはコーディングエージェントです。
+ユーザーのタスクを完了するために、ツールを使ってファイルの読み書き、コマンド実行を行います。
+タスクが完了したらテキストで回答してください。"""
+
+def agent_loop(user_message: str, tools: list, model: str):
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_message}
     ]
 
     while True:
-        # 1. THINK: LLMに送信
-        response = llm_call(model, messages, tools)
+        # vLLM にリクエスト
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            temperature=0,
+        )
 
-        # 2. ツール呼び出しがあるか確認 (ACT)
-        if response.tool_calls:
-            for tool_call in response.tool_calls:
-                # 3. ツール実行
-                result = execute_tool(tool_call.name, tool_call.arguments)
+        choice = response.choices[0]
 
-                # 4. OBSERVE: 結果をメッセージに追加
-                messages.append({"role": "assistant", "content": response})
+        # ツール呼び出しがあるか
+        if choice.message.tool_calls:
+            # アシスタントのメッセージを記録
+            messages.append(choice.message)
+
+            for tool_call in choice.message.tool_calls:
+                # ツール実行
+                result = execute_tool(
+                    tool_call.function.name,
+                    json.loads(tool_call.function.arguments)
+                )
+
+                # 結果をメッセージに追加
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "content": str(result)
                 })
         else:
-            # 最終回答 → ループ終了
-            return response.content
+            # テキスト応答 → ループ終了
+            return choice.message.content
 ```
 
-### 最小限のツール定義（4つ）
+### ツール実行の実装
 
 ```python
-TOOLS = {
-    "read_file": {
-        "description": "ファイルの内容を読む",
-        "parameters": {
-            "path": "string (必須)",
-            "offset": "integer (任意、開始行)",
-            "limit": "integer (任意、行数)"
-        }
-    },
-    "write_file": {
-        "description": "ファイルを作成/上書き。ディレクトリは自動作成",
-        "parameters": {
-            "path": "string (必須)",
-            "content": "string (必須)"
-        }
-    },
-    "edit_file": {
-        "description": "ファイル内のテキストを置換。old_textは完全一致が必要",
-        "parameters": {
-            "path": "string (必須)",
-            "old_text": "string (必須)",
-            "new_text": "string (必須)"
-        }
-    },
-    "bash": {
-        "description": "シェルコマンドを実行。stdout, stderr, exit codeを返す",
-        "parameters": {
-            "command": "string (必須)",
-            "timeout_ms": "integer (任意、デフォルト120000)"
-        }
-    }
-}
+import subprocess
+import os
+import json
+
+def execute_tool(name: str, args: dict) -> str:
+    if name == "read_file":
+        return _read_file(args["path"], args.get("offset"), args.get("limit"))
+    elif name == "write_file":
+        return _write_file(args["path"], args["content"])
+    elif name == "edit_file":
+        return _edit_file(args["path"], args["old_text"], args["new_text"])
+    elif name == "bash":
+        return _bash(args["command"], args.get("timeout_ms", 120000))
+    elif name == "glob":
+        return _glob(args["pattern"], args.get("path", "."))
+    elif name == "grep":
+        return _grep(args["pattern"], args.get("path", "."))
+    else:
+        return f"Unknown tool: {name}"
+
+def _read_file(path: str, offset: int = None, limit: int = None) -> str:
+    with open(path, "r") as f:
+        lines = f.readlines()
+    start = (offset or 1) - 1
+    end = start + (limit or 2000)
+    numbered = [f"{i+start+1}\t{line}" for i, line in enumerate(lines[start:end])]
+    return "".join(numbered)
+
+def _write_file(path: str, content: str) -> str:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(content)
+    return f"File written: {path}"
+
+def _edit_file(path: str, old_text: str, new_text: str) -> str:
+    with open(path, "r") as f:
+        content = f.read()
+
+    count = content.count(old_text)
+    if count == 0:
+        # フォールバック: 空白無視マッチ
+        import re
+        pattern = re.escape(old_text).replace(r"\ ", r"\s+")
+        if re.search(pattern, content):
+            content = re.sub(pattern, new_text, content, count=1)
+        else:
+            return f"Error: '{old_text[:50]}...' not found in {path}"
+    elif count > 1:
+        return f"Error: Found {count} matches. Provide more context."
+    else:
+        content = content.replace(old_text, new_text, 1)
+
+    with open(path, "w") as f:
+        f.write(content)
+    return f"Edit applied to {path}"
+
+def _bash(command: str, timeout_ms: int = 120000) -> str:
+    try:
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True,
+            timeout=timeout_ms / 1000
+        )
+        output = ""
+        if result.stdout:
+            output += f"stdout:\n{result.stdout}\n"
+        if result.stderr:
+            output += f"stderr:\n{result.stderr}\n"
+        output += f"exit_code: {result.returncode}"
+        return output
+    except subprocess.TimeoutExpired:
+        return "Error: Command timed out"
+
+def _glob(pattern: str, path: str = ".") -> str:
+    import glob as g
+    matches = g.glob(os.path.join(path, pattern), recursive=True)
+    return "\n".join(sorted(matches))
+
+def _grep(pattern: str, path: str = ".") -> str:
+    result = subprocess.run(
+        ["rg", "--no-heading", "-n", pattern, path],
+        capture_output=True, text=True
+    )
+    return result.stdout or "No matches found"
 ```
 
-### Claude Code完全互換の拡張ツール（+4つ）
+### サブエージェント（vLLM 並列の強み）
 
-| ツール | 用途 |
-|---|---|
-| `glob` | パターンでファイル検索 |
-| `grep` | 正規表現でファイル内容検索 |
-| `git_operations` | status, diff, commit, log |
-| `spawn_agent` | サブエージェント生成（独立コンテキスト） |
+vLLM の高い並列処理能力を活かして、複数のサブエージェントを同時実行：
+
+```python
+import asyncio
+
+async def spawn_agent(task: str, tools: list, model: str) -> str:
+    """独立したコンテキストでサブエージェントを実行"""
+    # サブエージェント用のクライアント（同じ vLLM サーバー）
+    sub_client = AsyncOpenAI(
+        base_url="http://localhost:8000/v1",
+        api_key="dummy"
+    )
+
+    messages = [
+        {"role": "system", "content": "あなたは専門サブエージェントです。"},
+        {"role": "user", "content": task}
+    ]
+
+    max_turns = 20
+    for _ in range(max_turns):
+        response = await sub_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=tools,
+            temperature=0,
+        )
+        choice = response.choices[0]
+
+        if choice.message.tool_calls:
+            messages.append(choice.message)
+            for tc in choice.message.tool_calls:
+                result = execute_tool(tc.function.name,
+                                      json.loads(tc.function.arguments))
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": str(result)
+                })
+        else:
+            return choice.message.content
+
+    return "Sub-agent reached max turns"
+
+# 複数サブエージェントを並列実行
+async def parallel_agents():
+    results = await asyncio.gather(
+        spawn_agent("src/ のテストを確認して", read_only_tools, model),
+        spawn_agent("package.json の依存関係を分析して", read_only_tools, model),
+        spawn_agent("README.md を読んでプロジェクト概要を教えて", read_only_tools, model),
+    )
+    return results
+```
+
+### コンテキスト圧縮
+
+```python
+def compress_context(messages: list, model: str, max_tokens: int) -> list:
+    """コンテキストがmax_tokensの70%を超えたら圧縮"""
+    total = estimate_tokens(messages)
+
+    if total < max_tokens * 0.7:
+        return messages  # 圧縮不要
+
+    # システムプロンプト + 直近5ターンは保持
+    system = messages[0]
+    recent = messages[-10:]  # 直近5ターン（user + assistant で10メッセージ）
+    old = messages[1:-10]
+
+    # 古いメッセージを要約
+    summary_prompt = f"""以下の会話を簡潔に要約してください。
+必ず保持する情報: ファイルパス、関数名、エラーメッセージ、決定事項
+
+{format_messages(old)}"""
+
+    summary = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": summary_prompt}],
+        max_tokens=500,
+    ).choices[0].message.content
+
+    return [
+        system,
+        {"role": "user", "content": f"[セッション要約]\n{summary}"},
+        {"role": "assistant", "content": "了解しました。要約を把握しました。"},
+        *recent
+    ]
+```
 
 ---
 
-## 4. コンテキスト管理（最重要の設計判断）
+## 4. ツール呼び出しの信頼性（vLLM特有）
 
-### リポジトリマップ（Aiderのアプローチ）
+### vLLM の構造化出力オプション
 
-1. **tree-sitter** で全ソースファイルを解析 → 関数/クラス定義を抽出
-2. 依存関係グラフを構築（どのファイルがどの定義を参照）
-3. **PageRank** で会話中のファイルに関連する定義をランク付け
-4. トークン予算内（デフォルト~1Kトークン）で上位の定義をプロンプトに含める
-5. 詳細が必要なら `read_file` で取得
-
-### 会話履歴の圧縮
-
-```
-[セッションコンテキスト]
-作業中: /home/user/project/backend
-変更ファイル: auth.py, middleware.py, tests/test_auth.py
-決定事項: JWTトークン使用、リフレッシュトークン回転追加
-現在のタスク: /api/users の401エラー修正
-最後のエラー: KeyError 'user_id' in middleware.py line 45
-[セッションコンテキスト終了]
-```
-
-**戦略:**
-1. コンテキストウィンドウの70%に達したら圧縮を実行
-2. システムプロンプト + ツール定義は常に保持
-3. 直近3-5ターンはそのまま保持
-4. それ以前は要約に圧縮（ファイルパス、関数名、エラーメッセージ、決定事項は必ず保持）
-
-### 記憶の永続化（CLAUDE.mdパターン）
-
-```
-~/.local-agent/memory/              # グローバル設定
-<project>/.agent.md                 # プロジェクト指示書
-<project>/.agent.local.md           # 個人設定（gitignore）
-<project>/.agent/memory/auto.md     # 自動記憶
-```
-
----
-
-## 5. ツール呼び出しの信頼性
-
-### 問題
-12B未満のモデルはJSONのツール呼び出しを頻繁に壊す
-
-### 解決策
-
-| 手法 | 説明 |
-|---|---|
-| Ollamaの`format`パラメータ | Pydanticスキーマで有効なJSONを強制 |
-| llama.cppのGBNF文法 | 出力トークンを文法的に制約（どのモデルでも動く） |
-| Lazy Grammar | 自然言語で思考 → ツール呼び出し部分だけ制約 |
-| ツール説明を短く | 全ツール合計~150トークンに抑える |
-| temperature=0 | 決定論的なツール呼び出し |
-
-### 編集の信頼性（3段階フォールバック）
-
-```
-1. 完全一致マッチ
-     ↓ 失敗
-2. 空白無視マッチ
-     ↓ 失敗
-3. ファジーマッチ（Levenshtein距離）
-     ↓ 失敗
-4. 詳細エラー返却 → LLMに再試行させる
-```
-
----
-
-## 6. 実装の3つの選択肢
-
-### 選択肢A: 既存ツールを使う（最速）
-
-```bash
-# Ollama + モデルをインストール
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull devstral-small:24b-q4_K_M
-
-# Aider で使う（コード編集精度最高）
-pip install aider-chat
-aider --model ollama_chat/devstral-small:24b-q4_K_M
-
-# または Goose で使う（MCP拡張性最高）
-goose configure  # Ollamaをプロバイダに設定
-goose session start
-```
-
-### 選択肢B: ゼロから作る（最大の制御）
-
-**推奨スタック:**
-- 言語: Python 3.12+
-- LLM: Ollama（最も簡単）or llama-cpp-python（制御性高い）
-- フレームワーク: Smolagents（HuggingFace）or 素のReActループ（~400行）
-- TUI: Rich + Textual
-- コード解析: tree-sitter（py-tree-sitter-languages）
-- 検索: ripgrep（サブプロセス）
-- 構造化出力: Pydantic + Ollama format
-- 記憶: ファイルベース（.agent.mdパターン）
-
-**参考チュートリアル:**
-- together.ai/blog/how-to-build-a-coding-agent-from-scratch
-- freecodecamp.org/news/build-an-ai-coding-agent-in-python
-- github.com/ghuntley/how-to-build-a-coding-agent
-
-### 選択肢C: Mistral Vibe CLIをフォーク（バランス最適）
-
-1. github.com/mistralai/mistral-vibe をフォーク（Apache 2.0）
-2. LLMプロバイダを Ollama に変更
-3. 記憶の永続化を追加（ファイルベース、CLAUDE.mdパターン）
-4. tree-sitter リポマップを追加（Aiderのアプローチ）
-5. ツール定義をカスタマイズ
-
-**利点:** サブエージェント、コンテキスト管理、ツール実行の仕組みが既にある。
-
----
-
-## 7. Claude Codeとの差分（現実的な限界）
-
-| 項目 | Claude Code | ローカル版 |
+| 手法 | 説明 | 使い方 |
 |---|---|---|
-| コンテキスト | 200K（劣化なし） | 128K（後半で劣化） |
-| 推論品質 | Opus/Sonnet級 | 70Bでも顕著に劣る |
-| 速度 | API経由で高速 | ローカル推論は遅い |
-| 編集自己修復 | 非常に強い | モデル依存、弱め |
-| サブエージェント | 同じ強い推論力 | 小さいモデルに制限 |
+| `guided_json` | JSONスキーマに沿った出力を強制 | `extra_body={"guided_json": schema}` |
+| `guided_grammar` | EBNF文法で出力を制約 | `extra_body={"guided_grammar": grammar}` |
+| `guided_regex` | 正規表現で出力を制約 | `extra_body={"guided_regex": pattern}` |
+| ツールパーサー | モデル固有のツール呼出形式を自動解析 | `--enable-auto-tool-choice` |
+
+### 推奨設定
+
+```python
+# 方法1: ツール呼び出し（推奨）
+response = client.chat.completions.create(
+    model=model,
+    messages=messages,
+    tools=tools,
+    tool_choice="auto",
+    temperature=0,
+)
+
+# 方法2: 構造化JSON出力（フォールバック）
+from pydantic import BaseModel
+from typing import Optional
+
+class AgentResponse(BaseModel):
+    thinking: str
+    tool_name: Optional[str] = None
+    tool_args: Optional[dict] = None
+    final_answer: Optional[str] = None
+
+response = client.chat.completions.create(
+    model=model,
+    messages=messages,
+    extra_body={"guided_json": AgentResponse.model_json_schema()},
+)
+```
+
+### ツール呼び出しが壊れる場合の対処
+
+```
+1. --tool-call-parser を変更（hermes → llama3_json → mistral）
+2. guided_json でスキーマを強制
+3. temperature=0 にする
+4. ツール説明を短くする（全ツール合計 ~150トークン）
+5. モデルを大きくする（12B未満はツール呼び出しが不安定）
+```
 
 ---
 
-## 8. 推奨実装ステップ
+## 5. 記憶・セッション管理
+
+### セッション保存（JSONL形式）
+
+```python
+import json
+from datetime import datetime
+
+def save_session(session_id: str, messages: list):
+    path = f".agent/sessions/{session_id}.jsonl"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a") as f:
+        for msg in messages:
+            f.write(json.dumps({
+                "timestamp": datetime.now().isoformat(),
+                "message": msg
+            }, ensure_ascii=False) + "\n")
+
+def load_session(session_id: str) -> list:
+    path = f".agent/sessions/{session_id}.jsonl"
+    messages = []
+    with open(path, "r") as f:
+        for line in f:
+            data = json.loads(line)
+            messages.append(data["message"])
+    return messages
+```
+
+### 記憶ファイル（MEMORY.md パターン）
 
 ```
-Phase 1: 環境構築（1週間）
-  ├─ Ollama + Devstral Small 2 24B インストール
-  ├─ 既存ツール（Aider or Goose）で動作確認
-  └─ 基本的なコーディングタスクで品質評価
+.agent/
+  ├── memory/
+  │   └── MEMORY.md          # 先頭200行を自動ロード
+  ├── sessions/
+  │   └── {id}.jsonl         # 会話履歴
+  ├── config.md              # プロジェクト指示書（≒ CLAUDE.md）
+  └── config.local.md        # 個人設定（gitignore）
+```
 
-Phase 2: カスタマイズ（2週間）
-  ├─ Vibe CLI をフォーク or 素のReActループ実装
-  ├─ 4つの基本ツール実装
-  ├─ tree-sitter リポマップ統合
-  └─ 記憶ファイルの永続化
+---
 
-Phase 3: 拡張（2週間）
-  ├─ サブエージェント機能追加
-  ├─ コンテキスト圧縮の実装
-  ├─ グラフRAG / ベクトル検索の統合
-  └─ TUI の改善
+## 6. Claude Code との差分（現実的な限界）
 
-Phase 4: 最適化（継続）
-  ├─ 編集精度のフォールバック改善
-  ├─ プランモードの実装
-  ├─ MCP対応
-  └─ 社内ドキュメント統合
+| 項目 | Claude Code | vLLM ローカル版 |
+|---|---|---|
+| コンテキスト | 200K（劣化なし） | 128-256K（後半で劣化あり） |
+| 推論品質 | Opus/Sonnet級 | 70Bでも劣る（特に複雑な推論） |
+| 速度 | API高速 | 24B@RTX4090で25-35 tok/s |
+| 並列処理 | 制限あり | **vLLMで100+並列**（ここは勝てる） |
+| 編集自己修復 | 非常に強い | モデル依存 |
+| サブエージェント | 強い推論力 | 並列性能で補う |
+| ツール呼び出し | 100%安定 | モデル・パーサー依存 |
+
+---
+
+## 7. 実装ステップ
+
+```
+Phase 1（MVP - 最小動作版）
+  ├── vLLM サーバー起動（Devstral or Llama 3.3）
+  ├── エージェントループ（ReAct、～400行 Python）
+  ├── 4つの基本ツール（read, write, edit, bash）
+  ├── OpenAI SDK で vLLM と通信
+  └── 基本的な CLI 入出力
+
+Phase 2（実用版）
+  ├── glob, grep ツール追加
+  ├── コンテキスト圧縮（トークンカウント + 自動要約）
+  ├── セッション保存/復元（JSONL）
+  ├── 設定ファイル（config.md）ロード
+  └── Edit のフォールバックマッチング（完全一致→空白無視→ファジー）
+
+Phase 3（Claude Code 互換）
+  ├── サブエージェント（asyncio で並列実行）
+  ├── 記憶システム（MEMORY.md パターン）
+  ├── フックシステム（PreToolUse / PostToolUse）
+  ├── 権限システム（deny/ask/allow）
+  ├── ファイルチェックポイント（編集前スナップショット）
+  └── TUI の改善（Rich/Textual）
+
+Phase 4（フル機能）
+  ├── 複数モデル同時起動（メイン + ルーター + Embedding）
+  ├── スキルシステム
+  ├── MCP 連携
+  ├── プランモード（読み取り専用モード）
+  └── tree-sitter リポマップ
 ```
