@@ -308,28 +308,82 @@ def tool_grep(pattern: str, path: str | None = None, file_pattern: str | None = 
 
 
 def tool_search_docs(query: str, top_k: int = 5, doc_filter: str | None = None) -> str:
-    """JERG文書をハイブリッド検索する（BM25+同義語+ベクトル+要約+LLM拡張）"""
+    """JERG文書をガイド付き2段階検索する（ドメイン検出→ハイブリッド検索）"""
     try:
-        from src.hybrid_search import hybrid_search
+        from src.guided_retrieval import guided_search
         from src.llm_client import create_client
 
         client, model = create_client()
-        results, methods = hybrid_search(
-            query, top_k=top_k, doc_filter=doc_filter,
-            client=client, model=model,
+
+        # doc_filterが明示指定された場合はガイド検索のフィルタを上書き
+        search_result = guided_search(
+            query=query,
+            top_k=top_k,
+            client=client,
+            model=model,
         )
+
+        # 明示的なdoc_filterが指定された場合は、再検索
+        if doc_filter:
+            from src.hybrid_search import hybrid_search
+            results, methods = hybrid_search(
+                query=query,
+                top_k=top_k,
+                doc_filter=doc_filter,
+                client=client,
+                model=model,
+            )
+            search_result["results"] = results
+            search_result["methods_used"] = methods
+            search_result["doc_filter"] = doc_filter
+
+        results = search_result["results"]
+        domains = search_result["domains"]
+        procedure = search_result["procedure"]
+        expert_notes = search_result["expert_notes"]
+        methods_used = search_result["methods_used"]
+        applied_filter = search_result["doc_filter"]
+
         if not results:
             return "検索結果がありません"
 
-        header = f"🔍 検索手法: {', '.join(methods)}\n"
-        parts = [header]
+        parts = []
+
+        # ドメイン検出情報
+        if domains:
+            top = domains[0]
+            confidence = "高" if top["score"] >= 5 else "中" if top["score"] >= 3 else "低"
+            parts.append(f"📌 ドメイン検出: {top['name']} (確信度: {confidence})")
+
+        # 専門家ノート
+        for note in expert_notes:
+            parts.append(f"💡 専門家ノート: {note}")
+
+        # 文書フィルタ
+        if applied_filter:
+            filter_docs = applied_filter.replace("|", ", ")
+            parts.append(f"📄 文書フィルタ: {filter_docs}")
+
+        # 検索手法
+        parts.append(f"🔍 検索手法: {' + '.join(methods_used)}")
+
+        # 手順情報
+        if procedure:
+            parts.append(f"\n📋 推奨手順 ({procedure['description']}):")
+            for i, step in enumerate(procedure["steps"], 1):
+                parts.append(f"   {i}. {step}")
+
+        parts.append("")  # 空行
+
+        # 検索結果
         for r in results:
             methods_str = "+".join(r.get("methods", []))
             parts.append(
                 f"📄 {r['doc_id']} (score: {r['score']:.4f}, via: {methods_str})\n"
                 f"   {r['text'][:400]}"
             )
-        return "\n\n".join(parts)
+
+        return "\n".join(parts)
     except FileNotFoundError as e:
         return f"Error: {e}"
     except Exception as e:

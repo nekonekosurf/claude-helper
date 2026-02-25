@@ -1,0 +1,168 @@
+# 試験計画策定手順
+# 衛星の環境試験計画を策定する際の標準手順
+
+name: 試験計画策定手順
+description: 衛星の環境試験計画を策定する際の標準手順。試験の種類・レベル・条件の決定から試験手順書作成までを支援する。
+applicable_docs:
+  - JERG-2-130  # 宇宙環境試験標準
+  - ECSS-E-ST-10-03C  # Testing（参考）
+
+prerequisites:
+  - 試験対象の仕様書
+  - ロケットインターフェース条件（環境条件）
+  - プロジェクトの試験フィロソフィ（認定/プロトフライト）
+
+steps:
+  - step: 1
+    title: 試験フィロソフィの確認
+    description: |
+      プロジェクトの試験アプローチを確認する。
+      認定試験＋受入試験方式か、プロトフライト方式かを明確にする。
+    search_query: "試験フィロソフィ 認定試験 受入試験 プロトフライト"
+    doc_filter: JERG-2-130
+    check_items:
+      - 試験フィロソフィが文書化されているか
+      - 試験レベル（コンポーネント/サブシステム/システム）が定義されているか
+      - 各レベルでの試験項目が明確か
+    test_philosophy_types:
+      qualification_acceptance:
+        description: 認定モデル（QM）で認定試験、フライトモデル（FM）で受入試験
+        qualification_factor: "規定の認定レベル"
+        acceptance_factor: "規定の受入レベル"
+      protoflight:
+        description: フライトモデルで認定レベル・受入回数の試験を実施
+        factor: "認定レベル、受入回数"
+
+  - step: 2
+    title: 試験項目の選定
+    description: |
+      プロジェクト要求と環境条件に基づき、必要な試験項目を選定する。
+    search_query: "環境試験 試験項目 一覧"
+    doc_filter: JERG-2-130
+    test_items:
+      mechanical:
+        - name: 正弦波振動試験
+          description: 低周波振動環境の検証
+          applicable: ロケット打上げ環境
+        - name: ランダム振動試験
+          description: 広帯域振動環境の検証
+          applicable: ロケット打上げ環境
+        - name: 音響試験
+          description: 音響振動環境の検証（大型構造物）
+          applicable: フェアリング内音響環境
+        - name: 衝撃試験
+          description: 分離衝撃等の検証
+          applicable: ロケット/衛星分離、展開機構動作
+      thermal:
+        - name: 熱真空試験
+          description: 真空熱環境での動作検証
+          applicable: 軌道上熱環境
+        - name: 熱サイクル試験
+          description: 温度繰り返し環境の検証
+          applicable: コンポーネントレベル
+        - name: 熱バランス試験
+          description: 熱数学モデルの検証
+          applicable: システムレベル
+      electrical:
+        - name: EMC試験
+          description: 電磁適合性の検証
+          applicable: 電気・電子機器
+        - name: 磁気試験
+          description: 磁気特性の検証
+          applicable: 磁気クリーン要求がある場合
+      other:
+        - name: アウトガス試験
+          description: 材料のアウトガス特性の検証
+          applicable: 新規材料使用時
+        - name: 放射線試験
+          description: 放射線耐性の検証
+          applicable: 放射線環境が厳しい軌道
+
+  - step: 3
+    title: 試験条件の設定
+    description: |
+      各試験項目の試験レベル（振幅、温度範囲等）と
+      試験持続時間・サイクル数を設定する。
+    search_query: "試験条件 試験レベル 認定 受入 持続時間"
+    doc_filter: JERG-2-130
+    check_items:
+      - 試験レベルがロケット環境条件 + マージンで設定されているか
+      - 認定レベルと受入レベルが区別されているか
+      - 試験持続時間・サイクル数が規格要求を満足しているか
+      - ノッチング条件（振動試験の場合）が定義されているか
+    typical_margins:
+      qualification_over_acceptance: "+6 dB（振動）/ ±10°C（温度）"
+      acceptance_over_flight: "+3 dB（振動）/ ±5°C（温度）"
+
+  - step: 4
+    title: 試験シーケンスの決定
+    description: |
+      試験の実施順序を決定する。
+      一般的に、機械環境試験を先に実施し、熱環境試験を後に実施する。
+    search_query: "試験シーケンス 試験順序 実施順"
+    recommended_sequence:
+      component_level:
+        - 外観検査・機能試験（初期）
+        - 振動試験（正弦波 → ランダム）
+        - 衝撃試験
+        - 熱サイクル試験 または 熱真空試験
+        - EMC試験
+        - 機能試験（最終）
+      system_level:
+        - 外観検査・機能試験（初期）
+        - 音響試験
+        - 正弦波振動試験
+        - 衝撃試験
+        - 熱バランス試験/熱真空試験
+        - EMC試験
+        - 機能試験（最終）
+        - 質量特性計測
+
+  - step: 5
+    title: 試験成功基準の定義
+    description: |
+      各試験の合否判定基準を定義する。
+    search_query: "試験成功基準 合否判定 判定基準"
+    check_items:
+      - 各試験の合格基準が明確に定義されているか
+      - 機能試験の合否基準が定義されているか
+      - 固有振動数の許容変動幅が定義されているか（通常 ±5%）
+      - 異常判定基準（試験中断条件）が定義されているか
+
+  - step: 6
+    title: 試験手順書の作成ガイド
+    description: |
+      試験手順書に記載すべき項目を確認する。
+    search_query: "試験手順書 記載事項"
+    required_sections:
+      - 試験目的
+      - 試験対象（供試体の識別）
+      - 試験条件（レベル、持続時間、サイクル数等）
+      - 試験セットアップ（治具、計測系）
+      - 試験手順（詳細ステップ）
+      - 成功基準・合否判定方法
+      - 異常時の対応手順
+      - データ取得・記録要求
+      - 安全注意事項
+
+output_format: |
+  ## 試験計画概要
+
+  ### 試験フィロソフィ
+  - 方式: [認定＋受入 / プロトフライト]
+  - 対象レベル: [コンポーネント / サブシステム / システム]
+
+  ### 試験項目一覧
+  | No. | 試験項目 | レベル | 条件概要 | 適用規格 |
+  |-----|---------|-------|---------|---------|
+  | 1   | ...     | ...   | ...     | ...     |
+
+  ### 試験シーケンス
+  1. ...
+  2. ...
+
+  ### 成功基準
+  - ...
+
+  ### 主要リスク・注意事項
+  - ...

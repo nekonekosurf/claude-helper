@@ -14,3 +14,23 @@ rules:
   - id: JERG-2-320
     title: 構造設計に関する文書
   pattern: 構造設計
+- category: thermal
+  documents:
+  - id: JERG-2-200
+    title: 熱設計ガイドライン
+  - id: JERG-2-211
+    title: 熱設計実務マニュアル
+  pattern: 熱設計
+  procedure:
+  - 設計要件を確認する
+  - JERG-2-200 と JERG-2-211 を参照し、要件に合致した回答を作成する
+- category: thermal
+  documents:
+  - id: JERG-2-200
+    title: 熱設計要件定義書
+  - id: JERG-2-211
+    title: 熱設計評価ガイドライン
+  pattern: 熱設計
+  procedure:
+  - 設計要件を確認する
+  - 回答を作成する

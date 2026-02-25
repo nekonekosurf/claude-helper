@@ -1,0 +1,535 @@
+# 専門用語の正規化辞書
+# ユーザーの曖昧な表現を正式な技術用語にマッピング
+# 検索精度向上のため、カジュアルな日本語/略語/英語を正式表現に対応付ける
+
+terms:
+  # ==========================================================================
+  # カジュアルな日本語 → 正式な技術用語
+  # ==========================================================================
+  熱い:
+    formal: [高温, 温度上昇, 熱的問題, 過昇温]
+    domain: thermal
+
+  冷たい:
+    formal: [低温, 温度低下, 冷却, 極低温]
+    domain: thermal
+
+  温度が高い:
+    formal: [高温側設計温度超過, 温度上限逸脱, 過昇温]
+    domain: thermal
+
+  温度が低い:
+    formal: [低温側設計温度逸脱, 温度下限逸脱, 過冷却]
+    domain: thermal
+
+  壊れる:
+    formal: [破壊, 破損, 構造的不具合, 機械的故障, 損傷]
+    domain: structural
+
+  割れる:
+    formal: [き裂, 亀裂, クラック, 破断, 破壊]
+    domain: structural
+
+  曲がる:
+    formal: [変形, 座屈, 塑性変形, たわみ]
+    domain: structural
+
+  揺れる:
+    formal: [振動, 擾乱, 振動応答, 共振]
+    domain: structural
+
+  折れる:
+    formal: [破断, 座屈, 疲労破壊]
+    domain: structural
+
+  漏れる:
+    formal: [リーク, 漏洩, 気密不良, シール不良]
+    domain: propulsion
+
+  飛ぶ:
+    formal: [打上げ, リフトオフ, 飛行, ローンチ]
+    domain: systems
+
+  落ちる:
+    formal: [再突入, 落下, デオービット, 軌道離脱]
+    domain: safety
+
+  つながる:
+    formal: [通信リンク確立, 回線接続, コンタクト]
+    domain: communication
+
+  つながらない:
+    formal: [通信途絶, リンク断, 回線断]
+    domain: communication
+
+  ノイズ:
+    formal: [電磁干渉, EMI, 雑音, 電磁ノイズ, 電磁妨害]
+    domain: emc
+
+  電気系:
+    formal: [電力系統, 電源系, 電気サブシステム]
+    domain: electrical
+
+  燃料:
+    formal: [推進薬, 推進剤, 燃料, プロペラント]
+    domain: propulsion
+
+  ガス:
+    formal: [高圧ガス, 圧縮ガス, 加圧ガス, ヘリウム]
+    domain: safety
+
+  タンク:
+    formal: [推進薬タンク, 気蓄器, 圧力容器]
+    domain: propulsion
+
+  ソフト:
+    formal: [ソフトウェア, フライトソフトウェア, オンボードソフトウェア]
+    domain: software
+
+  基板:
+    formal: [プリント配線板, PCB, PWB, 回路基板]
+    domain: pcb_design
+
+  はんだ:
+    formal: [はんだ付, はんだ接合, ソルダリング]
+    domain: soldering
+
+  配線:
+    formal: [電気配線, ワイヤハーネス, ケーブル]
+    domain: wiring
+
+  ゴミ:
+    formal: [スペースデブリ, 微小デブリ, 軌道上デブリ, MMOD]
+    domain: debris
+
+  汚れ:
+    formal: [コンタミネーション, 汚染, 分子汚染, 粒子汚染]
+    domain: contamination
+
+  日焼け:
+    formal: [紫外線劣化, UV劣化, 太陽光劣化]
+    domain: space_environment
+
+  バグ:
+    formal: [ソフトウェア不具合, プログラム欠陥, コーディングエラー]
+    domain: software
+
+  動かない:
+    formal: [機構動作不良, 固着, スティクション, 機能停止]
+    domain: mechanisms
+
+  開かない:
+    formal: [展開不良, 展開失敗, 保持解放機構不具合]
+    domain: mechanisms
+
+  回る:
+    formal: [回転, スピン, 姿勢運動, 角速度]
+    domain: attitude_control
+
+  向きがずれる:
+    formal: [指向誤差, ポインティングエラー, アライメントずれ]
+    domain: disturbance
+
+  試験:
+    formal: [環境試験, 認定試験, 受入試験, 検証試験]
+    domain: testing
+
+  テスト:
+    formal: [試験, 検証, 検査, バリデーション]
+    domain: testing
+
+  チェック:
+    formal: [検査, 確認, 審査, レビュー]
+    domain: management
+
+  審査:
+    formal: [設計審査, デザインレビュー, 審査会]
+    domain: management
+
+  部品:
+    formal: [電子部品, EEE部品, コンポーネント, 部品]
+    domain: parts_quality
+
+  市販品:
+    formal: [COTS, 民生品, 商用品, 民生機器]
+    domain: parts_quality
+
+  やり直し:
+    formal: [手直し, リワーク, 再作業, 再加工]
+    domain: management
+
+  保証:
+    formal: [品質保証, QA, 信頼性保証]
+    domain: management
+
+  # ==========================================================================
+  # 略語 → 正式名称（プロジェクト管理系）
+  # ==========================================================================
+  CDR:
+    formal: [Critical Design Review, 詳細設計審査]
+    domain: management
+
+  PDR:
+    formal: [Preliminary Design Review, 基本設計審査]
+    domain: management
+
+  SRR:
+    formal: [System Requirements Review, システム要求審査]
+    domain: management
+
+  SDR:
+    formal: [System Design Review, システム設計審査]
+    domain: management
+
+  TRR:
+    formal: [Test Readiness Review, 試験準備完了審査]
+    domain: testing
+
+  QR:
+    formal: [Qualification Review, 認定審査]
+    domain: management
+
+  AR:
+    formal: [Acceptance Review, 受入審査]
+    domain: management
+
+  FRR:
+    formal: [Flight Readiness Review, 飛行準備完了審査]
+    domain: management
+
+  # ==========================================================================
+  # 略語 → 正式名称（信頼性・安全系）
+  # ==========================================================================
+  FTA:
+    formal: [Fault Tree Analysis, 故障の木解析]
+    domain: reliability
+
+  FMEA:
+    formal: [Failure Mode and Effects Analysis, 故障モード影響解析]
+    domain: reliability
+
+  FMECA:
+    formal: [Failure Mode Effects and Criticality Analysis, 故障モード影響致命度解析]
+    domain: reliability
+
+  MTBF:
+    formal: [Mean Time Between Failures, 平均故障間隔]
+    domain: reliability
+
+  MTTF:
+    formal: [Mean Time To Failure, 平均故障寿命]
+    domain: reliability
+
+  LBB:
+    formal: [Leak Before Break, 破壊前漏洩]
+    domain: safety
+
+  MDP:
+    formal: [Maximum Design Pressure, 最大設計圧力]
+    domain: safety
+
+  MEOP:
+    formal: [Maximum Expected Operating Pressure, 最大予想使用圧力]
+    domain: safety
+
+  # ==========================================================================
+  # 略語 → 正式名称（試験系）
+  # ==========================================================================
+  TVAC:
+    formal: [Thermal Vacuum Test, 熱真空試験]
+    domain: thermal_vacuum_test
+
+  PQR:
+    formal: [Proto-Qualification Review, プロトフライト認定審査]
+    domain: testing
+
+  EMC:
+    formal: [Electromagnetic Compatibility, 電磁適合性, 電磁両立性]
+    domain: emc
+
+  EMI:
+    formal: [Electromagnetic Interference, 電磁干渉, 電磁妨害]
+    domain: emc
+
+  EMS:
+    formal: [Electromagnetic Susceptibility, 電磁感受性]
+    domain: emc
+
+  ESD:
+    formal: [Electrostatic Discharge, 静電気放電]
+    domain: esd
+
+  PSD:
+    formal: [Power Spectral Density, パワースペクトル密度]
+    domain: vibration_test
+
+  SRS:
+    formal: [Shock Response Spectrum, 衝撃応答スペクトル]
+    domain: testing
+
+  # ==========================================================================
+  # 略語 → 正式名称（サブシステム系）
+  # ==========================================================================
+  AOCS:
+    formal: [Attitude and Orbit Control System, 姿勢軌道制御系]
+    domain: attitude_control
+
+  ADCS:
+    formal: [Attitude Determination and Control System, 姿勢決定制御系]
+    domain: attitude_control
+
+  RW:
+    formal: [Reaction Wheel, リアクションホイール]
+    domain: attitude_control
+
+  CMG:
+    formal: [Control Moment Gyro, コントロールモーメントジャイロ]
+    domain: attitude_control
+
+  STT:
+    formal: [Star Tracker, スタートラッカ, 恒星センサ]
+    domain: attitude_control
+
+  SAP:
+    formal: [Solar Array Panel, 太陽電池パドル, 太陽電池パネル]
+    domain: power
+
+  PCU:
+    formal: [Power Control Unit, 電力制御器]
+    domain: power
+
+  PDU:
+    formal: [Power Distribution Unit, 電力分配器]
+    domain: power
+
+  MLI:
+    formal: [Multi-Layer Insulation, 多層断熱材]
+    domain: mli
+
+  OSR:
+    formal: [Optical Solar Reflector, 光学太陽反射鏡]
+    domain: thermal
+
+  TCS:
+    formal: [Thermal Control System, 熱制御系]
+    domain: thermal
+
+  RF:
+    formal: [Radio Frequency, 高周波, 無線周波数]
+    domain: communication
+
+  CCSDS:
+    formal: [Consultative Committee for Space Data Systems, 宇宙データシステム諮問委員会]
+    domain: ccsds
+
+  TC:
+    formal: [Telecommand, テレコマンド]
+    domain: communication
+
+  TM:
+    formal: [Telemetry, テレメトリ]
+    domain: communication
+
+  # ==========================================================================
+  # 略語 → 正式名称（放射線・環境系）
+  # ==========================================================================
+  TID:
+    formal: [Total Ionizing Dose, トータルイオン化線量, 総電離線量]
+    domain: radiation
+
+  SEE:
+    formal: [Single Event Effect, シングルイベント効果]
+    domain: radiation
+
+  SEU:
+    formal: [Single Event Upset, シングルイベントアップセット]
+    domain: radiation
+
+  SEL:
+    formal: [Single Event Latchup, シングルイベントラッチアップ]
+    domain: radiation
+
+  DD:
+    formal: [Displacement Damage, 変位損傷, 格子欠陥損傷]
+    domain: radiation
+
+  MMOD:
+    formal: [Micrometeoroid and Orbital Debris, 微小隕石・軌道上デブリ]
+    domain: debris
+
+  AO:
+    formal: [Atomic Oxygen, 原子状酸素]
+    domain: space_environment
+
+  # ==========================================================================
+  # 略語 → 正式名称（通信・データバス系）
+  # ==========================================================================
+  SpW:
+    formal: [SpaceWire, スペースワイヤ]
+    domain: ccsds
+
+  AOS:
+    formal: [Advanced Orbiting Systems, 先進軌道システム]
+    domain: ccsds
+
+  SMCP:
+    formal: [Spacecraft Monitor and Control Protocol, 宇宙機監視制御プロトコル]
+    domain: operations
+
+  FMS:
+    formal: [Functional Model of Spacecrafts, 宇宙機の機能モデル]
+    domain: operations
+
+  # ==========================================================================
+  # 略語 → 正式名称（ソフトウェア系）
+  # ==========================================================================
+  VV:
+    formal: [Verification and Validation, 検証妥当性確認]
+    domain: software
+
+  IV_V:
+    formal: [Independent Verification and Validation, 独立検証妥当性確認]
+    domain: software
+
+  COTS:
+    formal: [Commercial Off-The-Shelf, 市販品, 民生品]
+    domain: parts_quality
+
+  # ==========================================================================
+  # 英語 → 日本語マッピング（宇宙工学用語）
+  # ==========================================================================
+  thermal control:
+    formal: [熱制御, 熱設計, 温度管理]
+    domain: thermal
+
+  structural analysis:
+    formal: [構造解析, 強度解析, 応力解析]
+    domain: structural
+
+  vibration:
+    formal: [振動, 振動試験, 機械振動]
+    domain: structural
+
+  shock:
+    formal: [衝撃, 衝撃試験, パイロショック]
+    domain: testing
+
+  acoustic:
+    formal: [音響, 音響試験, 音響振動]
+    domain: testing
+
+  outgassing:
+    formal: [アウトガス, ガス放出, 脱ガス]
+    domain: contamination
+
+  derating:
+    formal: [ディレーティング, 電気的余裕, 負荷軽減]
+    domain: electrical
+
+  harness:
+    formal: [ハーネス, ワイヤハーネス, 電気配線]
+    domain: wiring
+
+  deployment:
+    formal: [展開, デプロイメント, 展開機構]
+    domain: mechanisms
+
+  separation:
+    formal: [分離, 衛星分離, フェアリング分離]
+    domain: mechanisms
+
+  propellant:
+    formal: [推進薬, 推進剤, 燃料]
+    domain: propulsion
+
+  thruster:
+    formal: [スラスタ, 推進器, エンジン]
+    domain: propulsion
+
+  orbit:
+    formal: [軌道, 衛星軌道, 軌道要素]
+    domain: mission_orbit
+
+  link budget:
+    formal: [回線設計, リンクバジェット, 回線余裕]
+    domain: communication
+
+  pointing:
+    formal: [指向, ポインティング, 指向精度]
+    domain: disturbance
+
+  contamination:
+    formal: [コンタミネーション, 汚染, コンタミ]
+    domain: contamination
+
+  qualification:
+    formal: [認定, 認定試験, クオリフィケーション]
+    domain: testing
+
+  acceptance:
+    formal: [受入, 受入試験, アクセプタンス]
+    domain: testing
+
+  safe mode:
+    formal: [セーフモード, 安全モード, セーフホールド]
+    domain: operations
+
+  redundancy:
+    formal: [冗長, 冗長設計, 冗長系, バックアップ]
+    domain: reliability
+
+  failure mode:
+    formal: [故障モード, 故障様式]
+    domain: reliability
+
+  fault tolerance:
+    formal: [耐故障性, フォールトトレランス]
+    domain: reliability
+
+  # ==========================================================================
+  # あいまいな表現（複数ドメインにまたがりうる）
+  # ==========================================================================
+  規格:
+    formal: [設計標準, 技術基準, 工程標準]
+    domain: management
+    note: 分野不明の場合はJERG-2-000(宇宙機設計標準)から確認
+
+  データ:
+    formal: [テレメトリデータ, 試験データ, 設計データ]
+    domain: null
+    note: 文脈により通信(テレメトリ)、試験、または設計に振り分け
+
+  インタフェース:
+    formal: [インタフェース, 機械IF, 電気IF, 熱IF, データIF]
+    domain: systems
+    note: 機械/電気/熱/データの各種IFがあり、文脈で判断
+
+  設計:
+    formal: [設計, 基本設計, 詳細設計, 概念設計]
+    domain: systems
+    note: 分野を特定して対応する設計標準を参照
+
+  解析:
+    formal: [解析, 構造解析, 熱解析, 軌道解析, 制御解析]
+    domain: null
+    note: 解析対象(構造/熱/軌道/制御)で参照先が異なる
+
+  レビュー:
+    formal: [設計審査, デザインレビュー, 技術審査]
+    domain: management
+    note: PDR/CDR等の具体的なレビューフェーズを確認
+
+  環境:
+    formal: [宇宙環境, 機械環境, 熱環境, 放射線環境, 電磁環境]
+    domain: space_environment
+    note: 文脈により宇宙環境/試験環境/EMC環境等を区別
+
+  安全係数:
+    formal: [安全率, 安全係数, Safety Factor, Factor of Safety]
+    domain: structural
+    note: 構造の安全係数はJERG-2-320、圧力容器はJERG-0-001を参照
+
+  寿命:
+    formal: [設計寿命, ミッション寿命, 運用寿命, 疲労寿命]
+    domain: null
+    note: 寿命の対象(構造疲労/部品/バッテリ/ミッション)で参照先が異なる

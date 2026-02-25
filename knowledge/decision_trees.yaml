@@ -1,0 +1,273 @@
+# 質問パターン → 解決手順の決定木
+# 複雑な質問を適切な手順に導くために使用
+#
+# 各ツリーは以下の構造を持つ:
+#   trigger_patterns: 正規表現パターンのリスト（いずれかにマッチすれば発動）
+#   description: この決定木が扱う問題の説明
+#   steps: 順番に実行する手順のリスト
+#   fallback: どのステップでも解決しない場合の代替手順（任意）
+
+trees:
+
+  # ===== 1. 設計基準・規格の参照 =====
+  design_standard_lookup:
+    trigger_patterns:
+      - ".*(?:規格|基準|標準|ガイドライン).*(?:教えて|参照|どれ|何).*"
+      - ".*どの(?:文書|資料|規格).*(?:見|参照|確認).*"
+      - ".*(?:JERG|ECSS|MIL|NASA).*(?:内容|規定|要求).*"
+    description: 設計基準・規格の特定と該当セクションの検索
+    steps:
+      - action: identify_domain
+        description: 質問からドメイン（熱、構造、電気等）を特定
+        method: domain_map lookup
+      - action: find_primary_docs
+        description: domain_mapからprimary_docsを取得
+        method: domain_map[domain].primary_docs
+      - action: search_toc
+        description: 該当文書の目次チャンクを検索
+        method: search with doc_filter
+      - action: return_reference
+        description: 該当セクションの参照情報を返す
+    fallback:
+      action: broad_search
+      description: ドメイン特定できない場合、全文書横断検索を行う
+
+  # ===== 2. 設計審査（デザインレビュー） =====
+  design_review:
+    trigger_patterns:
+      - ".*(?:設計|レビュー|審査).*(?:チェック|確認|項目|基準).*"
+      - ".*(?:CDR|PDR|TRR|SRR|MDR|QR).*"
+      - ".*(?:設計審査).*(?:準備|何を|必要).*"
+    description: 設計審査の準備・確認項目の提供
+    procedure_ref: procedures/design_review_prep.yaml
+    steps:
+      - action: identify_review_phase
+        description: CDR/PDR/TRR/SRR等のフェーズを特定
+        question: "どの設計審査フェーズですか？（SRR/PDR/CDR/TRR/QR）"
+      - action: find_checklist_docs
+        description: 該当フェーズのチェックリスト文書を検索
+        method: search "設計審査 {phase} チェックリスト"
+      - action: extract_requirements
+        description: 要求事項を抽出
+        method: extract from matched docs
+      - action: return_checklist
+        description: チェックリスト形式で結果を返す
+
+  # ===== 3. トラブルシューティング =====
+  troubleshooting:
+    trigger_patterns:
+      - ".*(?:問題|不具合|故障|異常|トラブル).*"
+      - ".*(?:なぜ|原因|理由).*(?:壊|故障|動かない|異常).*"
+      - ".*(?:対策|解決|修正).*(?:方法|手順|どうすれば).*"
+    description: 不具合調査・トラブルシューティング
+    steps:
+      - action: identify_failure_domain
+        description: 不具合の分野を特定（熱、構造、電気等）
+        method: keyword matching against domain_map
+      - action: classify_severity
+        description: 不具合の重大度を分類（クリティカル/メジャー/マイナー）
+        method: ask user or infer from context
+      - action: check_fmea
+        description: FMEA/FTA関連文書を検索
+        method: search "FMEA 故障モード {domain}"
+      - action: find_similar_cases
+        description: 類似事例を文書から検索
+        method: search "{failure_description} 事例 対策"
+      - action: suggest_resolution
+        description: 対処方法を提案
+    fallback:
+      action: escalate
+      description: 文書内に該当情報がない場合、専門家への相談を推奨
+
+  # ===== 4. 試験計画 =====
+  test_planning:
+    trigger_patterns:
+      - ".*(?:試験|テスト|検証).*(?:計画|方法|手順|条件).*"
+      - ".*(?:熱真空|振動|EMC|衝撃|音響).*(?:試験|テスト).*"
+      - ".*(?:環境試験|認定試験|受入試験).*"
+    description: 試験計画・試験条件の確認
+    procedure_ref: procedures/test_planning.yaml
+    steps:
+      - action: identify_test_type
+        description: 試験の種類を特定（熱真空、振動、EMC等）
+        method: keyword matching
+        test_types:
+          - 熱真空試験
+          - 振動試験
+          - 衝撃試験
+          - 音響試験
+          - EMC試験
+          - 放射線試験
+          - アウトガス試験
+      - action: identify_test_level
+        description: 試験レベルを特定（認定/受入/プロトフライト）
+        question: "試験レベルは？（認定試験/受入試験/プロトフライト）"
+      - action: find_test_standards
+        description: 該当する試験規格を検索
+        method: search "{test_type} 規格 条件 JERG"
+      - action: extract_conditions
+        description: 試験条件・合格基準を抽出
+      - action: return_test_plan
+        description: 試験計画の概要を返す
+
+  # ===== 5. 材料選定 =====
+  material_selection:
+    trigger_patterns:
+      - ".*(?:材料|素材|材質).*(?:選定|選択|使える|適した).*"
+      - ".*(?:アウトガス|outgassing).*"
+      - ".*(?:宇宙|衛星).*(?:材料|使える).*"
+    description: 宇宙用材料の選定支援
+    steps:
+      - action: identify_application
+        description: 用途・環境条件を特定
+        questions:
+          - "使用箇所はどこですか？（構体、熱制御、電気等）"
+          - "温度範囲は？"
+          - "放射線環境は？"
+      - action: check_material_standards
+        description: 材料規格文書を検索
+        method: search "材料選定 {application}"
+      - action: check_outgassing
+        description: アウトガス要求を確認
+        method: search "アウトガス TML CVCM"
+      - action: check_radiation_tolerance
+        description: 放射線耐性を確認（該当する場合）
+        method: search "放射線 材料 耐性"
+      - action: return_candidates
+        description: 候補材料リストと選定根拠を返す
+
+  # ===== 6. 熱設計チェック =====
+  thermal_design_check:
+    trigger_patterns:
+      - ".*(?:熱設計|温度).*(?:チェック|確認|レビュー|大丈夫).*"
+      - ".*(?:熱解析|熱モデル).*(?:結果|妥当|確認).*"
+      - ".*(?:ヒーター|MLI|放熱).*(?:設計|選定|計算).*"
+    description: 熱設計の妥当性チェック
+    procedure_ref: procedures/thermal_design_check.yaml
+    steps:
+      - action: check_temperature_requirements
+        description: 各コンポーネントの許容温度範囲を確認
+        doc_filter: JERG-2-210
+      - action: verify_thermal_model
+        description: 熱数学モデルの妥当性を確認
+        doc_filter: JERG-2-211
+      - action: check_thermal_control
+        description: 能動的/受動的熱制御方式を確認
+      - action: check_margins
+        description: 温度マージンの確認
+      - action: check_test_correlation
+        description: 解析と試験の相関確認
+
+  # ===== 7. 構造設計チェック =====
+  structural_design_check:
+    trigger_patterns:
+      - ".*(?:構造設計|強度).*(?:チェック|確認|解析|計算).*"
+      - ".*(?:応力|変形|座屈|固有振動).*"
+      - ".*(?:安全率|マージン|MoS).*(?:確認|計算|足りる).*"
+    description: 構造設計・強度解析の確認
+    procedure_ref: procedures/structural_analysis_check.yaml
+    steps:
+      - action: identify_load_case
+        description: 荷重条件を特定（打上げ、軌道上、地上取扱い）
+      - action: check_structural_requirements
+        description: 構造設計要求を確認
+        doc_filter: JERG-2-320
+      - action: verify_analysis_method
+        description: 解析手法の妥当性確認（FEM等）
+      - action: check_safety_margins
+        description: 安全余裕（Margin of Safety）の確認
+        criteria:
+          yield_safety_factor: 1.25
+          ultimate_safety_factor: 1.5
+      - action: check_fatigue
+        description: 疲労寿命の確認（該当する場合）
+      - action: return_assessment
+        description: 構造評価結果を返す
+
+  # ===== 8. 電気設計確認 =====
+  electrical_design_check:
+    trigger_patterns:
+      - ".*(?:電気設計|電源|配線|ハーネス).*(?:確認|チェック|レビュー).*"
+      - ".*(?:ディレーティング|部品選定|EEE).*"
+      - ".*(?:EMC|電磁適合|ノイズ).*(?:対策|設計|要求).*"
+    description: 電気設計の確認・部品選定支援
+    steps:
+      - action: identify_subsystem
+        description: 電気サブシステムを特定（電源、通信、データ処理等）
+      - action: check_derating
+        description: ディレーティング要求を確認
+        method: search "ディレーティング 部品 {component_type}"
+      - action: check_emc_requirements
+        description: EMC要求を確認
+        method: search "EMC 要求 {subsystem}"
+      - action: check_radiation_hardness
+        description: 放射線耐性要求を確認
+        method: search "放射線 耐性 TID SEE"
+      - action: check_harness_design
+        description: ハーネス設計要求を確認
+      - action: return_assessment
+        description: 電気設計評価結果を返す
+
+  # ===== 9. 信頼性・安全性評価 =====
+  reliability_safety:
+    trigger_patterns:
+      - ".*(?:信頼性|安全性|冗長).*(?:評価|解析|確認|要求).*"
+      - ".*(?:FMEA|FTA|故障モード|故障の木).*"
+      - ".*(?:フェールセーフ|冗長設計|単一故障点).*"
+    description: 信頼性・安全性の評価支援
+    steps:
+      - action: identify_scope
+        description: 評価対象のスコープを特定（システム/サブシステム/コンポーネント）
+      - action: check_reliability_requirements
+        description: 信頼性要求を確認
+        method: search "信頼性 要求 MTBF {scope}"
+      - action: check_redundancy
+        description: 冗長設計方針を確認
+        method: search "冗長設計 単一故障点 {scope}"
+      - action: check_fmea_fta
+        description: FMEA/FTA実施状況を確認
+        method: search "FMEA 故障モード {scope}"
+      - action: check_safety_requirements
+        description: 安全性要求を確認
+        method: search "安全性 要求 ハザード {scope}"
+      - action: return_assessment
+        description: 信頼性・安全性評価結果を返す
+
+  # ===== 10. プロジェクト管理・文書管理 =====
+  project_management:
+    trigger_patterns:
+      - ".*(?:スケジュール|マイルストーン|工程).*(?:確認|管理|遅れ).*"
+      - ".*(?:文書|ドキュメント).*(?:管理|番号|体系|どこ).*"
+      - ".*(?:コンフィギュレーション|構成管理|変更管理).*"
+    description: プロジェクト管理・文書管理の支援
+    steps:
+      - action: identify_management_area
+        description: 管理分野を特定（スケジュール/文書/構成管理/リスク）
+      - action: find_management_docs
+        description: 該当する管理文書を検索
+        method: search "{management_area} 管理 手順"
+      - action: check_procedures
+        description: 関連手順を確認
+      - action: return_guidance
+        description: 管理手順のガイダンスを返す
+
+# 決定木の選択ロジック
+selection_logic:
+  priority_order:
+    - troubleshooting      # 不具合は最優先
+    - design_review         # 審査関連
+    - thermal_design_check  # 個別設計チェック
+    - structural_design_check
+    - electrical_design_check
+    - test_planning
+    - material_selection
+    - reliability_safety
+    - design_standard_lookup
+    - project_management
+
+  multi_match_strategy: highest_priority
+  # 複数の決定木がマッチした場合、priority_orderで最も上のものを使用
+
+  no_match_behavior:
+    action: keyword_search
+    description: 決定木にマッチしない場合、キーワード抽出による直接検索を行う
