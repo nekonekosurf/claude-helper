@@ -8,6 +8,9 @@ domains:
   # ==========================================================================
   management:
     name: 管理・品質保証・安全
+    # specificity: ドメインの専門性の度合い（1=広域汎用, 5=非常に専門的）
+    # 広いドメインは他の専門ドメインに負けやすくするためスコアに乗算される
+    specificity: 2
     keywords: [品質保証, 品質管理, 安全, 安全基準, コンフィギュレーション管理, 信頼性プログラム, QA, 品質]
     primary_docs:
       - JERG-0-017  # 品質保証プログラム標準 解説書
@@ -23,6 +26,7 @@ domains:
 
   reliability:
     name: 信頼性設計
+    specificity: 3
     keywords: [信頼性, FMEA, FTA, 故障解析, 故障率, MTBF, 冗長, 冗長設計, 信頼度, 故障モード, ロバスト設計]
     primary_docs:
       - JERG-0-063  # 宇宙開発信頼性技術ハンドブック
@@ -37,6 +41,7 @@ domains:
 
   safety:
     name: 安全基準・再突入安全
+    specificity: 3
     keywords: [安全基準, 再突入, 射場運用, 射場安全, 高圧ガス, 圧力容器, 安全設計, 軌道上サービス]
     primary_docs:
       - JERG-0-001  # 宇宙用高圧ガス機器技術基準
@@ -52,6 +57,7 @@ domains:
 
   human_factors:
     name: ヒューマンファクタ
+    specificity: 5
     keywords: [ヒューマンファクタ, 人的要因, ヒューマンエラー, 人間工学, HF]
     primary_docs:
       - JERG-0-018  # ヒューマンファクタ分析ハンドブック
@@ -65,6 +71,7 @@ domains:
   # ==========================================================================
   soldering:
     name: はんだ付・実装工程
+    specificity: 5
     keywords: [はんだ付, はんだ, ソルダリング, 表面実装, SMT, BGA, CGA, 鉛フリー, リフロー, 実装]
     primary_docs:
       - JERG-0-039  # 宇宙用はんだ付工程標準
@@ -83,6 +90,7 @@ domains:
 
   pcb_design:
     name: プリント配線板設計
+    specificity: 5
     keywords: [プリント配線板, PCB, 基板, 配線板, PWB, 回路基板]
     primary_docs:
       - JERG-0-042  # プリント配線板と組立品の設計標準
@@ -94,6 +102,7 @@ domains:
 
   wiring:
     name: 電気配線・光ファイバ配線
+    specificity: 4
     keywords: [配線, ハーネス, ワイヤ, ケーブル, 電気配線, 光ファイバ, 光配線]
     primary_docs:
       - JERG-0-041  # 宇宙用電気配線工程標準
@@ -108,6 +117,7 @@ domains:
 
   bonding_coating:
     name: 接着・コーティング
+    specificity: 5
     keywords: [接着, コンフォーマルコーティング, ポッティング, 接着固定, 部品接着]
     primary_docs:
       - JERG-0-040  # 宇宙用電子機器接着工程標準
@@ -118,6 +128,7 @@ domains:
 
   esd:
     name: 静電気対策
+    specificity: 5
     keywords: [静電気, ESD, 帯電, 放電, 静電破壊, 静電気対策]
     primary_docs:
       - JERG-0-036  # 静電気対策ハンドブック（電子部品・装置）
@@ -130,6 +141,7 @@ domains:
 
   parts_quality:
     name: 部品品質・宇宙適用
+    specificity: 4
     keywords: [部品品質, 部品選定, EEE部品, 海外部品, コンポーネント, COTS, 民生部品, 宇宙転用, ディレーティング]
     primary_docs:
       - JERG-0-050  # 海外部品品質確保ハンドブック
@@ -154,6 +166,7 @@ domains:
   # ==========================================================================
   software:
     name: ソフトウェア開発
+    specificity: 4
     keywords: [ソフトウェア, SW, プログラム, コーディング, ソフト開発, ソフトウェア品質, V&V, ソフトウェアテスト]
     primary_docs:
       - JERG-0-049  # ソフトウェア開発標準（全般）
@@ -172,6 +185,8 @@ domains:
   # ==========================================================================
   systems:
     name: システム設計
+    # systems は広域ドメイン（多くのクエリにマッチしがち）なので specificity を低く設定
+    specificity: 1
     keywords: [システム設計, システムエンジニアリング, SE, システム要求, 設計標準, 宇宙機設計]
     primary_docs:
       - JERG-2-000  # 宇宙機（人工衛星・探査機）設計標準
@@ -185,6 +200,7 @@ domains:
 
   space_environment:
     name: 宇宙環境
+    specificity: 3
     keywords: [宇宙環境, 軌道環境, プラズマ, 磁気圏, 太陽風, 大気, 原子状酸素, 紫外線, 環境条件]
     primary_docs:
       - JERG-2-141  # 宇宙環境標準
@@ -200,6 +216,7 @@ domains:
 
   radiation:
     name: 放射線・耐放射線設計
+    specificity: 5
     keywords: [放射線, 耐放射線, TID, SEE, シングルイベント, 放射線劣化, 放射線耐性, 放射線環境, トータルドーズ, ラッチアップ]
     primary_docs:
       - JERG-2-143  # 耐宇宙環境設計標準（耐放射線設計標準）
@@ -212,6 +229,7 @@ domains:
 
   debris:
     name: スペースデブリ防護
+    specificity: 5
     keywords: [デブリ, スペースデブリ, 微小デブリ, MMOD, 衝突, 防護, デブリ防護, シールド]
     primary_docs:
       - JERG-2-144  # 微小デブリ衝突耐性評価標準
@@ -224,6 +242,7 @@ domains:
 
   mission_orbit:
     name: ミッション・軌道設計
+    specificity: 4
     keywords: [軌道設計, ミッション設計, 軌道投入, 軌道制御, 軌道要素, 遷移軌道, 軌道力学]
     primary_docs:
       - JERG-2-151  # ミッション・軌道設計標準
@@ -237,6 +256,7 @@ domains:
 
   disturbance:
     name: 擾乱管理・指向管理
+    specificity: 4
     keywords: [擾乱, 微小振動, マイクロバイブレーション, 指向, ポインティング, アライメント, 擾乱管理]
     primary_docs:
       - JERG-2-152  # 擾乱管理標準
@@ -252,6 +272,7 @@ domains:
   # ==========================================================================
   electrical:
     name: 電気設計
+    specificity: 2
     keywords: [電気設計, 電気系, 回路設計, アナログ, デジタル, インタフェース, 電気IF]
     primary_docs:
       - JERG-2-200  # 電気設計標準
@@ -268,6 +289,7 @@ domains:
 
   power:
     name: 電源系設計
+    specificity: 4
     keywords: [電源, 電力, バッテリ, 太陽電池, 太陽電池パドル, SAP, 電源系, 蓄電池, 充放電, 電力制御]
     primary_docs:
       - JERG-2-214  # 電源系設計標準
@@ -281,6 +303,7 @@ domains:
 
   charging_discharge:
     name: 帯電・放電設計
+    specificity: 5
     keywords: [帯電, 放電, 表面帯電, 内部帯電, 帯電放電, ESD, 宇宙帯電, アーク]
     primary_docs:
       - JERG-2-211  # 帯電・放電設計標準
@@ -294,6 +317,7 @@ domains:
 
   insulation:
     name: 絶縁設計
+    specificity: 5
     keywords: [絶縁, 絶縁設計, 絶縁抵抗, 耐電圧, パッシェン, 絶縁距離, 沿面距離]
     primary_docs:
       - JERG-2-213  # 絶縁設計標準
@@ -305,6 +329,7 @@ domains:
 
   emc:
     name: EMC・電磁適合性
+    specificity: 5
     keywords: [EMC, 電磁適合性, 電磁干渉, EMI, 電磁環境, ノイズ, シールド, グラウンド, 接地, 電磁両立性]
     primary_docs:
       - JERG-2-241  # EMC設計標準
@@ -320,6 +345,7 @@ domains:
   # ==========================================================================
   thermal:
     name: 熱設計・熱制御
+    specificity: 5
     keywords: [熱設計, 熱制御, 温度, ヒーター, 放熱, サーマル, 断熱, 熱解析, 温度制御, 熱収支, ラジエータ, ヒートパイプ, 熱モデル]
     primary_docs:
       - JERG-2-310  # 熱制御系設計標準
@@ -334,6 +360,7 @@ domains:
 
   mli:
     name: MLI（多層断熱材）
+    specificity: 5
     keywords: [MLI, 多層断熱材, 断熱材, 剥離, 多層断熱]
     primary_docs:
       - JERG-2-311  # MLI剥離防止設計標準
@@ -348,6 +375,7 @@ domains:
   # ==========================================================================
   structural:
     name: 構造設計・構造解析
+    specificity: 4
     keywords: [構造, 強度, 振動, 衝撃, 荷重, 応力, モーダル, 構造解析, 構造設計, 座屈, 疲労, 安全係数, 安全余裕]
     primary_docs:
       - JERG-2-320  # 構造設計標準
@@ -366,6 +394,7 @@ domains:
   # ==========================================================================
   mechanisms:
     name: 機構設計
+    specificity: 5
     keywords: [機構, メカニズム, 展開, ヒンジ, ラッチ, 分離, 保持解放, デプロイ, アクチュエータ, 機構設計]
     primary_docs:
       - JERG-2-330  # 機構設計標準
@@ -380,6 +409,7 @@ domains:
   # ==========================================================================
   propulsion:
     name: 推進系設計
+    specificity: 5
     keywords: [推進, スラスタ, 推進薬, 推力, エンジン, 推進系, 燃焼, ノズル, 推進剤, イオンエンジン, ヒドラジン, 電気推進]
     primary_docs:
       - JERG-2-340  # 宇宙機用推進系設計標準
@@ -395,6 +425,7 @@ domains:
   # ==========================================================================
   communication:
     name: 通信設計
+    specificity: 3
     keywords: [通信, テレメトリ, コマンド, RF, 回線設計, アンテナ, 変調, 符号化, 通信系, データ中継, 通信プロトコル]
     primary_docs:
       - JERG-2-400  # 通信設計標準
@@ -413,6 +444,7 @@ domains:
 
   ccsds:
     name: CCSDS・通信プロトコル
+    specificity: 5
     keywords: [CCSDS, テレコマンド, AOS, SpaceWire, MIL-STD-1553B, データリンク, パケット, フレーム, プロトコル]
     primary_docs:
       - JERG-2-400-HB201H  # CCSDS概説
@@ -438,6 +470,7 @@ domains:
   # ==========================================================================
   control:
     name: 制御系設計
+    specificity: 2
     keywords: [制御, 制御系, フィードバック, 制御則, 安定性, 制御設計]
     primary_docs:
       - JERG-2-500  # 制御系設計標準
@@ -449,6 +482,7 @@ domains:
 
   attitude_control:
     name: 姿勢制御系設計
+    specificity: 5
     keywords: [姿勢制御, AOCS, ADCS, 姿勢決定, スタートラッカ, ジャイロ, リアクションホイール, 姿勢系, 姿勢センサ, 姿勢アクチュエータ]
     primary_docs:
       - JERG-2-510  # 姿勢制御系設計標準
@@ -466,6 +500,7 @@ domains:
   # ==========================================================================
   operations:
     name: 運用・運用準備
+    specificity: 3
     keywords: [運用, 運用準備, 運用手順, 衛星運用, 監視制御, テレメトリ監視, コマンド運用]
     primary_docs:
       - JERG-2-701  # 運用準備標準
@@ -480,6 +515,7 @@ domains:
 
   ground_systems:
     name: 地上系・地上設備
+    specificity: 4
     keywords: [地上系, 地上設備, 地上ソフトウェア, 保全, メンテナンス, 地上局]
     primary_docs:
       - JERG-3-003  # 地上ソフトウェア開発標準
@@ -495,6 +531,7 @@ domains:
   # ==========================================================================
   testing:
     name: 試験・環境試験
+    specificity: 2
     keywords: [試験, 環境試験, 振動試験, 衝撃試験, 音響試験, 熱真空試験, 認定試験, 受入試験, フォースリミット]
     primary_docs:
       - JERG-2-130  # 宇宙機一般試験標準
@@ -514,6 +551,7 @@ domains:
 
   vibration_test:
     name: 振動試験
+    specificity: 5
     keywords: [振動試験, ランダム振動, 正弦波振動, サイン振動, 加振, 振動条件, PSD, 振動レベル]
     primary_docs:
       - JERG-2-130-HB003  # 振動試験ハンドブック
@@ -528,6 +566,7 @@ domains:
 
   thermal_vacuum_test:
     name: 熱真空試験
+    specificity: 5
     keywords: [熱真空試験, TVAC, TV試験, 熱サイクル試験, 熱真空]
     primary_docs:
       - JERG-2-130-HB005  # 熱真空試験ハンドブック
